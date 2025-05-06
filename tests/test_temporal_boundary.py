@@ -1,5 +1,5 @@
 import pytest
-from eventual.core import Concept, TemporalBoundary, TemporalBoundaryConfig
+from eventual.core import Concept, TemporalBoundary, TemporalBoundaryConfig, Event
 
 def test_static_threshold():
     config = TemporalBoundaryConfig(threshold=0.1, dynamic_threshold=False)
@@ -13,7 +13,7 @@ def test_static_threshold():
     # Event for significant change
     event = detector.detect_event(concept, 0.8)
     assert event is not None
-    assert event.delta == 0.2
+    assert event.delta == 0.19999999999999996
 
 def test_dynamic_threshold():
     config = TemporalBoundaryConfig(threshold=0.1, dynamic_threshold=True)

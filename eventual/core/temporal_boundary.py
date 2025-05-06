@@ -109,7 +109,7 @@ class TemporalBoundary:
             event = Event(
                 event_id=f"event_{len(self.history.get(concept.concept_id, []))}",
                 timestamp=datetime.now(),
-                concept=concept,
+                concepts={concept},
                 delta=delta,
             )
             return event

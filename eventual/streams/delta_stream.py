@@ -54,11 +54,11 @@ print("Extracted Delta Events:", extracted_delta_events)
 ```
 """
 from datetime import datetime
-from typing import Dict, List, Any, Optional
+from typing import Optional
 
 # Remove imports from eventual.core as DeltaStream no longer interacts directly with Hypergraph/Event
 # from eventual.core import TemporalBoundary, Event, Hypergraph
-from eventual.core.temporal_boundary import TemporalBoundary # Keep TemporalBoundary as it's a helper
+from eventual.core.temporal_boundary import TemporalBoundary, TemporalBoundaryConfig # Keep TemporalBoundary as it's a helper
 from eventual.streams.instance_stream import InstanceStream
 from eventual.utils.numerical_properties import compute_delta
 
@@ -76,7 +76,7 @@ class DeltaStream:
     Attributes:
         instance_stream (InstanceStream): The stream of instances to process.
         temporal_boundary (TemporalBoundary): The temporal boundary detector for detecting significant changes.
-        previous_states (Dict[str, float]): A dictionary storing the previous state of each concept (keyed by concept ID).
+        previous_states (dict[str, float]): A dictionary storing the previous state of each concept (keyed by concept ID).
     """
 
     def __init__(self, instance_stream: InstanceStream, threshold: float = 0.1):
@@ -89,25 +89,26 @@ class DeltaStream:
         """
         # Removed hypergraph from constructor
         self.instance_stream = instance_stream
-        self.temporal_boundary = TemporalBoundary(threshold=threshold)
-        self.previous_states: Dict[str, float] = {}
+        temporal_boundary_config = TemporalBoundaryConfig(threshold=threshold)
+        self.temporal_boundary = TemporalBoundary(config=temporal_boundary_config)
+        self.previous_states: dict[str, float] = {}
 
-    def compute_deltas(self) -> List[ExtractedEvent]:
+    def compute_deltas(self, initial_events) -> list[ExtractedEvent]:
         """
         Compute deltas between the current and previous states of concepts.
 
         Returns:
-            List[ExtractedEvent]: A list of structured `ExtractedEvent` objects generated 
+            list[ExtractedEvent]: A list of structured `ExtractedEvent` objects generated 
                                   from significant changes in concept states.
         """
-        extracted_events: List[ExtractedEvent] = []
-        instances = self.instance_stream.process() # Assuming process() returns a list of dicts or similar
+        extracted_events: list[ExtractedEvent] = []
+        instances = self.instance_stream.process(initial_events) # Assuming process() returns a list of dicts or similar
 
         for instance in instances:
             # Assuming instance is a dictionary with at least 'concept_id' and 'state'
-            concept_id = instance.get("concept_id")
-            current_state = instance.get("state")
-            timestamp = instance.get("timestamp", datetime.now()) # Use instance timestamp if available
+            concept_id = instance.concept_id
+            current_state = instance.value
+            timestamp = instance.timestamp # Use instance timestamp
 
             if concept_id is None or current_state is None:
                 print(f"Warning: Skipping instance due to missing 'concept_id' or 'state': {instance}")
@@ -121,7 +122,7 @@ class DeltaStream:
                 delta = compute_delta(previous_state, current_state)
 
                 # Check if the delta exceeds the threshold
-                if abs(delta) >= self.temporal_boundary.threshold:
+                if abs(delta) >= self.temporal_boundary.config.threshold:
                     # Create an ExtractedEvent for the significant change
                     # The concept is referred to by its ID (or name, if that's what the stream provides)
                     # DeltaStream doesn't need the full Concept object from the Hypergraph anymore.
@@ -130,7 +131,7 @@ class DeltaStream:
                         concept_identifiers=[concept_id],
                         timestamp=timestamp, # Use the instance timestamp
                         delta=delta, 
-                        event_type='state_change', # Define event type
+                        event_type='state_change',
                         properties={
                             "source": "DeltaStream",
                             "delta_magnitude": abs(delta),
