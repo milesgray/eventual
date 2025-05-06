@@ -1,1 +1,1 @@
-Current task: Implement Core Workflow Patterns
+Current task: Implement Initial Project Task
