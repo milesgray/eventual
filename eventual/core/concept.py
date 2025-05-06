@@ -23,7 +23,7 @@ for entry in light_concept.get_history():
 ```
 
 """
-from typing import Any, Optional, Set
+from typing import Optional
 from datetime import datetime
 from uuid import uuid4
 
@@ -46,12 +46,12 @@ class Concept:
         concept_id (str): A unique identifier for the concept.
         name (str): The name of the concept (e.g., "light", "darkness").
         state (float): The current state of the concept (numerical value).
-        history (List[dict[str, Any]]): A history of state changes, including timestamps and deltas.
-        metadata (dict[str, Any]): Additional metadata about the concept (e.g., source, context).
-        events (Set[Event]): A set of events this concept is part of.
+        history (List[dict[str, any]]): A history of state changes, including timestamps and deltas.
+        metadata (dict[str, any]): Additional metadata about the concept (e.g., source, context).
+        events (set[Event]): A set of events this concept is part of.
     """
 
-    def __init__(self, concept_id: Optional[str] = None, name: str = "", initial_state: float = 0.0, metadata: Optional[dict[str, Any]] = None):
+    def __init__(self, concept_id: Optional[str] = None, name: str = "", initial_state: float = 0.0, metadata: Optional[dict[str, any]] = None):
         """
         Initialize a Concept instance.
 
@@ -59,14 +59,14 @@ class Concept:
             concept_id (Optional[str]): A unique identifier for the concept. If not provided, a UUID will be generated.
             name (str): The name of the concept (e.g., "light", "darkness").
             initial_state (float): The initial state of the concept (default: 0.0).
-            metadata (Optional[dict[str, Any]]): Additional metadata about the concept (e.g., source, context).
+            metadata (Optional[dict[str, any]]): Additional metadata about the concept (e.g., source, context).
         """
         self.concept_id = concept_id if concept_id else f"concept_{uuid4().hex}"
         self.name = name
         self.state = initial_state
         self.history = []  # Tracks state changes over time
         self.metadata = metadata if metadata else {}
-        self.events: Set[Any] = set() # Set of Event objects this concept is part of; Use Any to break circular dependency for now, or forward reference
+        self.events: set[any] = set() # set of Event objects this concept is part of; Use any to break circular dependency for now, or forward reference
 
         # Record the initial state in history
         self._record_state_change(initial_state, "Initial state")
@@ -100,12 +100,12 @@ class Concept:
             "reason": reason
         })
 
-    def get_history(self) -> list[dict[str, Any]]:
+    def get_history(self) -> list[dict[str, any]]:
         """
         Get the history of state changes for the concept.
 
         Returns:
-            List[dict[str, Any]]: A list of state change records, each containing:
+            List[dict[str, any]]: A list of state change records, each containing:
                 - timestamp: The time of the state change.
                 - state: The new state.
                 - delta: The change in state.
@@ -113,17 +113,17 @@ class Concept:
         """
         return self.history
 
-    def add_metadata(self, key: str, value: Any):
+    def add_metadata(self, key: str, value: any):
         """
         Add or update metadata for the concept.
 
         Args:
             key (str): The metadata key.
-            value (Any): The metadata value.
+            value (any): The metadata value.
         """
         self.metadata[key] = value
 
-    def get_metadata(self, key: str) -> Optional[Any]:
+    def get_metadata(self, key: str) -> Optional[any]:
         """
         Retrieve metadata for the concept.
 
@@ -131,7 +131,7 @@ class Concept:
             key (str): The metadata key.
 
         Returns:
-            Optional[Any]: The metadata value, or None if the key does not exist.
+            Optional[any]: The metadata value, or None if the key does not exist.
         """
         return self.metadata.get(key)
 
@@ -144,7 +144,7 @@ class Concept:
         """
         return f"Concept(concept_id={self.concept_id}, name={self.name}, state={self.state}, history_length={len(self.history)}, events_count={len(self.events)})"
 
-    def __eq__(self, other: Any) -> bool:
+    def __eq__(self, other: any) -> bool:
         if not isinstance(other, Concept):
             return False
         return self.concept_id == other.concept_id

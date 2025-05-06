@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Any, Optional, Set, TYPE_CHECKING
+from typing import Optional, TYPE_CHECKING
 from uuid import uuid4
 
 if TYPE_CHECKING:
@@ -18,29 +18,29 @@ class Event:
     Attributes:
         event_id (str): A unique identifier for the event.
         timestamp (datetime): The time at which the event occurred.
-        concepts (Set[Concept]): The set of concepts involved in this event.
+        concepts (set[Concept]): The set of concepts involved in this event.
         delta (float): The magnitude of the change (e.g., in a concept's state if the event is about a single concept's change,
                        or 0.0 for purely relational events between multiple concepts).
-        metadata (dict[str, Any]): Additional metadata associated with the event.
+        metadata (dict[str, any]): Additional metadata associated with the event.
     """
 
     def __init__(
         self,
-        concepts: Set['Concept'], # Changed from concept_id: str
+        concepts: set['Concept'], # Changed from concept_id: str
         delta: float,
         timestamp: Optional[datetime] = None,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: Optional[dict[str, any]] = None,
         event_id: Optional[str] = None, # Made event_id optional, will generate if None
     ):
         """
         Initialize an Event.
 
         Args:
-            concepts (Set[Concept]): The set of concepts involved in this event.
+            concepts (set[Concept]): The set of concepts involved in this event.
             delta (float): The magnitude of the change or a value associated with the event.
             timestamp (Optional[datetime]): The time at which the event occurred.
                 Defaults to the current time if not provided.
-            metadata (Optional[dict[str, Any]]): Additional metadata associated with the event.
+            metadata (Optional[dict[str, any]]): Additional metadata associated with the event.
                 Defaults to an empty dictionary if not provided.
             event_id (Optional[str]): A unique identifier for the event. If None, a UUID is generated.
         """
@@ -53,12 +53,12 @@ class Event:
         self.delta = delta
         self.metadata = metadata if metadata is not None else {}
 
-    def to_dict(self) -> dict[str, Any]:
+    def to_dict(self) -> dict[str, any]:
         """
         Convert the event to a dictionary representation.
 
         Returns:
-            dict[str, Any]: A dictionary containing the event's attributes.
+            dict[str, any]: A dictionary containing the event's attributes.
         """
         return {
             "event_id": self.event_id,
@@ -73,7 +73,7 @@ class Event:
     # For now, I will comment it out as it's not directly used by the current TextProcessor flow
     # and would require more context on how it should behave (e.g., if it needs a Hypergraph instance).
     # @classmethod
-    # def from_dict(cls, data: dict[str, Any], hypergraph: Optional['Hypergraph'] = None) -> "Event":
+    # def from_dict(cls, data: dict[str, any], hypergraph: Optional['Hypergraph'] = None) -> "Event":
     #     """
     #     Create an Event from a dictionary representation.
     #     Requires a hypergraph instance to retrieve concepts by their IDs.
@@ -111,12 +111,12 @@ class Event:
             f"concepts=[{concept_names}], delta={self.delta}, metadata={self.metadata})"
         )
 
-    def __eq__(self, other: Any) -> bool:
+    def __eq__(self, other: any) -> bool:
         """
         Check if two events are equal based on their event_id.
 
         Args:
-            other (Any): The object to compare with.
+            other (any): The object to compare with.
 
         Returns:
             bool: True if the events are equal, False otherwise.

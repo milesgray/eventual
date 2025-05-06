@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, List, Optional
+from typing import TYPE_CHECKING, Optional
 from uuid import uuid4
 from datetime import datetime
 
@@ -35,7 +35,7 @@ class HypergraphIntegrator(BaseIntegrator):
         # 1. Integrate Concepts
         # Add all extracted concepts to the hypergraph first, ensuring uniqueness.
         # This is important so that events can refer to these concepts.
-        integrated_concepts: List[Concept] = []
+        integrated_concepts: list[Concept] = []
         for ext_concept in processor_output.extracted_concepts:
             # Use add_concept_if_not_exists to handle potential duplicates by name or ID
             # Assign a temporary ID if not provided in the extracted concept, Hypergraph will handle actual ID if new
@@ -59,7 +59,7 @@ class HypergraphIntegrator(BaseIntegrator):
         # 2. Integrate Events
         # Resolve concept identifiers and create/add events
         for ext_event in processor_output.extracted_events:
-            involved_concepts: List[Concept] = []
+            involved_concepts: list[Concept] = []
             all_concepts_found = True
 
             # Resolve concept identifiers to actual Concept objects in the hypergraph

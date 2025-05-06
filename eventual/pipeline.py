@@ -53,7 +53,7 @@ The main class that orchestrates the pipeline steps.
 """
 import argparse
 from datetime import datetime
-from typing import List, Set, Dict, Optional
+from typing import Optional
 from dataclasses import dataclass, field
 import yaml  # For configuration
 import requests  # For downloading files (example)
@@ -83,10 +83,10 @@ class Source:
 
 @dataclass
 class Config:
-    languages: List[Language] = field(default_factory=list)
-    steps: Set[int] = field(default_factory=set)
-    data_sources: Dict[str, Source] = field(default_factory=dict)
-    llm_settings: Dict = field(default_factory=dict) # Add LLM settings to config
+    languages: list[Language] = field(default_factory=list)
+    steps: set[int] = field(default_factory=set)
+    data_sources: dict[str, Source] = field(default_factory=dict)
+    llm_settings: dict = field(default_factory=dict) # Add LLM settings to config
 
 # Pipeline Class
 class EventualPipeline:
@@ -127,12 +127,7 @@ class EventualPipeline:
             # DataExtractor.extract_events_from_wikipedia(self.languages),
             # DataExtractor.extract_events_from_wikidata(self.languages),
             # DataExtractor.extract_events_from_dbpedia(self.languages),
-            # DataExtractor.extract_events_from_yago(self.languages),
-             # Placeholder for demonstration:
-             class MockExtractor:
-                 def run(self):
-                     print("Running mock data extraction.")
-             MockExtractor().run()
+            # DataExtractor.extract_events_from_yago(self.languages),           
         ]
         # for extractor in extractors:
         #     extractor.run()
@@ -197,8 +192,7 @@ class EventualPipeline:
         try:
             os.makedirs("output", exist_ok=True)
             with open("output/text_events.txt", "w") as f:
-                f.write("Event 1: Description of event 1.
-") # Replace with actual text events from hypergraph if available
+                f.write("Event 1: Description of event 1.") # Replace with actual text events from hypergraph if available
             print("Wrote output/text_events.txt")
         except Exception as e:
             print(f"Error writing output file: {e}")
@@ -209,8 +203,7 @@ class EventualPipeline:
          try:
             os.makedirs("output", exist_ok=True)
             with open("output/links.txt", "w") as f:
-                f.write("http://example.org/event1 -> http://example.org/event2
-") # Replace with actual links from hypergraph if available
+                f.write("http://example.org/event1 -> http://example.org/event2") # Replace with actual links from hypergraph if available
             print("Wrote output/links.txt")
          except Exception as e:
             print(f"Error writing output file: {e}")
@@ -221,8 +214,7 @@ class EventualPipeline:
          try:
             os.makedirs("output", exist_ok=True)
             with open("output/comentions.txt", "w") as f:
-                f.write("Event 1 and Event 2 are co-mentioned.
-") # Replace with actual co-mentions from hypergraph if available
+                f.write("Event 1 and Event 2 are co-mentioned.") # Replace with actual co-mentions from hypergraph if available
             print("Wrote output/comentions.txt")
          except Exception as e:
             print(f"Error writing output file: {e}")
@@ -246,16 +238,14 @@ class EventualPipeline:
         integrator.integrate(processor_output_tfidf, self.hypergraph)
         print(f"Hypergraph state after Text 1 processing: {self.hypergraph}")
 
-        print("
---- Processing Text 2 (TF-IDF) ---")
+        print("--- Processing Text 2 (TF-IDF) ---")
         # Process text using TF-IDF method
         processor_output_tfidf_2 = processor.extract_concepts(text2)
         # Integrate into the hypergraph
         integrator.integrate(processor_output_tfidf_2, self.hypergraph)
         print(f"Hypergraph state after Text 2 processing: {self.hypergraph}")
 
-        print("
---- Detecting Phase Shifts (Text 1 vs Text 2) ---")
+        print("--- Detecting Phase Shifts (Text 1 vs Text 2) ---")
         # Detect phase shifts, which returns ExtractedEvents
         phase_shift_events = processor.detect_phase_shifts(text1, text2, delta_threshold=0.05)
         # Create a ProcessorOutput specifically for these events for integration
@@ -264,8 +254,7 @@ class EventualPipeline:
         integrator.integrate(phase_shift_output, self.hypergraph)
         print(f"Hypergraph state after Phase Shift detection: {self.hypergraph}")
 
-        print("
---- Processing Text (LLM) ---")
+        print("--- Processing Text (LLM) ---")
         # Process text using LLM method
         # Note: This requires LLM configuration and API keys to be set up correctly.
         try:

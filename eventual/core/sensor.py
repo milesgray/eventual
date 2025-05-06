@@ -48,7 +48,7 @@ composite_sensor = CompositeSensor("composite_sensor_1", {
 ```
 """
 from abc import ABC, abstractmethod
-from typing import Any, Optional, Dict, List, Set
+from typing import Optional
 from datetime import datetime
 from dataclasses import dataclass, field
 
@@ -77,14 +77,14 @@ class Sensor(ABC):
         self.sensor_id = sensor_id
         self.sensor_type = sensor_type
         # last_reading should ideally be a standardized format, but for generic Sensor base class,
-        # keeping it flexible as dict[str, Any] for now.
-        self.last_reading: Optional[dict[str, Any]] = None
+        # keeping it flexible as dict[str, any] for now.
+        self.last_reading: Optional[dict[str, any]] = None
         self.last_reading_timestamp: Optional[datetime] = None
 
     @abstractmethod
-    # Note: The return type is generalized as dict[str, Any] in the base class,
+    # Note: The return type is generalized as dict[str, any] in the base class,
     # but concrete implementations like TextSensor should return more specific types (like ProcessorOutput).
-    def read_data(self, *args, **kwargs) -> dict[str, Any]:
+    def read_data(self, *args, **kwargs) -> dict[str, any]:
         """
         Read raw data from the sensor and return it.
 
@@ -92,18 +92,18 @@ class Sensor(ABC):
         Concrete sensor implementations should override this method with appropriate type hints.
 
         Returns:
-            dict[str, Any]: A dictionary containing the sensor reading and metadata.
+            dict[str, any]: A dictionary containing the sensor reading and metadata.
                             Example: {"value": 0.5, "units": "lux", "timestamp": datetime.now()}
             ProcessorOutput: (For sensors like TextSensor that perform extraction)
         """
         pass
 
-    def get_last_reading(self) -> Optional[dict[str, Any]]:
+    def get_last_reading(self) -> Optional[dict[str, any]]:
         """
         Get the most recent reading from the sensor.
 
         Returns:
-            Optional[dict[str, Any]]: The last reading, or None if no reading has been taken.
+            Optional[dict[str, any]]: The last reading, or None if no reading has been taken.
         """
         return self.last_reading
 
@@ -180,7 +180,7 @@ class NumericalSensor(Sensor):
         self.concept_name = concept_name # Store the associated concept name
         self.units = units
 
-    def read_data(self, value: float) -> dict[str, Any]:
+    def read_data(self, value: float) -> dict[str, any]:
         """
         Process numerical data and return it in a standardized format.
 
@@ -188,7 +188,7 @@ class NumericalSensor(Sensor):
             value (float): The raw numerical value from the sensor.
 
         Returns:
-            dict[str, Any]: A dictionary containing the normalized value, associated concept name, units, and metadata.
+            dict[str, any]: A dictionary containing the normalized value, associated concept name, units, and metadata.
                             Example: {"concept_name": "light", "value": 0.5, "units": "lux", "timestamp": datetime.now()}
         """
         from eventual.utils.numerical_properties import normalize_value
@@ -231,12 +231,12 @@ class CompositeSensor(Sensor):
         super().__init__(sensor_id, "composite")
         self.child_sensors = child_sensors
 
-    def read_data(self) -> dict[str, Any]:
+    def read_data(self) -> dict[str, any]:
         """
         Read data from all child sensors and combine it into a single reading.
 
         Returns:
-            dict[str, Any]: A dictionary containing the combined sensor readings and metadata.
+            dict[str, any]: A dictionary containing the combined sensor readings and metadata.
                             Example: {"readings": {"text_sensor_1": {...}, "light_sensor_1": {...}}, "timestamp": datetime.now()}
         """
         print(f"CompositeSensor '{self.sensor_id}' reading data from child sensors...")

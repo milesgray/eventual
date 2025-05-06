@@ -37,7 +37,7 @@ event = Event(
 hypergraph.add_event(event)
 ```
 """
-from typing import Optional, List, Set
+from typing import Optional
 from eventual.core.event import Event
 from eventual.core.concept import Concept
 

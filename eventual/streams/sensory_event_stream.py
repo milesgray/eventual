@@ -1,9 +1,9 @@
 from datetime import datetime
-from typing import Callable, Any, Dict, List
+from typing import Callable
 from dataclasses import dataclass
 # Removed import for Hypergraph and Event as these are no longer managed directly
 # from eventual.core import Concept, Event, Hypergraph
-from eventual.core.temporal_boundary import TemporalBoundary # Keep TemporalBoundary
+from eventual.core.temporal_boundary import TemporalBoundary, TemporalBoundaryConfig # Keep TemporalBoundary
 
 @dataclass
 class SensorConfig:
@@ -17,7 +17,7 @@ class SensorConfig:
     """
     sensor_id: str
     sensor_type: str
-    processor: Callable[[Any], Dict[str, float]]
+    processor: Callable[[any], dict[str, float]]
 
 class SensoryEventStream:
     """
@@ -28,19 +28,19 @@ class SensoryEventStream:
     It no longer directly interacts with a Hypergraph.
     """
 
-    def __init__(self, default_threshold: float = 0.1):
+    def __init__(self, temporal_boundary_config: TemporalBoundaryConfig):
         """
         Initialize the SensoryEventStream (no hypergraph needed).
 
         Args:
-            default_threshold (float): Default threshold for detecting significant changes (used internally by TemporalBoundary).
+            temporal_boundary_config: The configuration for the temporal boundary.
         """
         # No hypergraph needed here anymore.
         # self.hypergraph = hypergraph
-        self.sensors: Dict[str, SensorConfig] = {}
-        self.temporal_boundary = TemporalBoundary(threshold=default_threshold)
+        self.sensors: dict[str, SensorConfig] = {}
+        self.temporal_boundary = TemporalBoundary(config=temporal_boundary_config)
 
-    def add_sensor(self, sensor_id: str, sensor_type: str, processor: Callable[[Any], Dict[str, float]]):
+    def add_sensor(self, sensor_id: str, sensor_type: str, processor: Callable[[any], dict[str, float]]):
         """
         Add a sensor to the sensory event stream.
 
@@ -52,16 +52,16 @@ class SensoryEventStream:
         """
         self.sensors[sensor_id] = SensorConfig(sensor_id, sensor_type, processor)
 
-    def ingest(self, sensor_id: str, data: Any) -> List[Dict[str, Any]]:
+    def ingest(self, sensor_id: str, data: any) -> list[dict[str, any]]:
         """
         Ingest raw data from a sensor and process it into a list of event data (dictionaries).
 
         Args:
             sensor_id (str): The ID of the sensor providing the data.
-            data (Any): The raw data from the sensor.
+            data (any): The raw data from the sensor.
 
         Returns:
-            List[Dict[str, Any]]: A list of event data dictionaries, each containing concept_id, timestamp, and delta.
+            list[dict[str, any]]: A list of event data dictionaries, each containing concept_id, timestamp, and delta.
 
         Raises:
             ValueError: If the sensor ID is not found.
@@ -72,7 +72,7 @@ class SensoryEventStream:
         sensor_config = self.sensors[sensor_id]
         processed_data = sensor_config.processor(data)
 
-        event_data_list: List[Dict[str, Any]] = []
+        event_data_list: list[dict[str, any]] = []
 
         for concept_name, value in processed_data.items():
             # Generate a unique concept ID (the Integrator will handle actual ID assignment)
@@ -89,7 +89,7 @@ class SensoryEventStream:
             #     if event:
             #         events.append(event)
             #         concept.update_state(value)
-            event_data: Dict[str, Any] = {
+            event_data: dict[str, any] = {
                 "concept_id": concept_id,
                 "timestamp": datetime.now(),
                 "delta": value,  # Use processed data value as delta
@@ -103,42 +103,3 @@ class SensoryEventStream:
         print(f"SensoryEventStream ingested data from sensor '{sensor_id}' and created {len(event_data_list)} event data entries.")
 
         return event_data_list
-
-# No longer need TemporalBoundary as a class attribute; it will be called in process() if needed
-# class TemporalBoundary:
-#     """
-#     Detects significant changes in concept states to create events.
-#
-#     Attributes:
-#         threshold (float): The minimum change required to trigger an event.
-#     """
-#
-#     def __init__(self, threshold: float = 0.1):
-#         """
-#         Initialize the TemporalBoundary with a threshold.
-#
-#         Args:
-#             threshold (float): The minimum change required to trigger an event.
-#         """
-#         self.threshold = threshold
-#
-#     def detect_event(self, concept: Concept, new_state: float) -> Event | None:
-#         """
-#         Detect if a change in concept state is significant enough to create an event.
-#
-#         Args:
-#             concept (Concept): The concept whose state has changed.
-#             new_state (float): The new state of the concept.
-#
-#         Returns:
-#             Union[Event, None]: An event if the change is significant, otherwise None.
-#         """
-#         delta = abs(concept.state - new_state)
-#         if delta >= self.threshold:
-#             return Event(
-#                 event_id=f"event_{len(self.hypergraph.events)}",
-#                 timestamp=datetime.now(),
-#                 concept=concept,
-#                 delta=delta
-#             )
-#         return None
