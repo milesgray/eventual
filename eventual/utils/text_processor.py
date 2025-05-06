@@ -93,7 +93,7 @@ Ensure your environment variables are set correctly for the chosen LLM provider 
 A class for processing text data to extract concepts and their numerical properties, designed to work with an external Hypergraph via an Integrator.
 
 """
-from typing import Dict, List, Tuple, Any, Optional
+from typing import Optional
 import re
 from collections import defaultdict
 import numpy as np
@@ -130,8 +130,8 @@ class TextProcessor:
     Attributes:
         nlp (spacy.Language): A pre-trained spaCy NLP model for text processing.
         vectorizer (TfidfVectorizer): A TF-IDF vectorizer for calculating term importance.
-        concept_map (Dict[str, List[str]]): A mapping of concepts (lemmas) to their synonyms or related terms (used in the default method).
-        llm_settings (Dict): Settings loaded from config.yaml for LLM calls.
+        concept_map (dict[str, list[str]]): A mapping of concepts (lemmas) to their synonyms or related terms (used in the default method).
+        llm_settings (dict): Settings loaded from config.yaml for LLM calls.
     """
 
     def __init__(self, language_model: str = "en_core_web_sm", config_path="eventual/config.yaml"):
@@ -171,14 +171,14 @@ class TextProcessor:
             return doc[0].lemma_.lower()
         return text.lower() # Fallback to lower case if lemmatization fails
 
-    def _load_default_concept_map(self) -> Dict[str, List[str]]:
+    def _load_default_concept_map(self) -> dict[str, list[str]]:
         """
         Load a default mapping of concepts to their synonyms or related terms.
 
         Note: The keys and values of this map should ideally be in their root forms (lemmas).
 
         Returns:
-            Dict[str, List[str]]: A dictionary mapping concepts (lemmas) to lists of related terms (lemmas).
+            dict[str, list[str]]: A dictionary mapping concepts (lemmas) to lists of related terms (lemmas).
         """
         return {
             "light": ["brightness", "illumination", "glow", "radiance"],
@@ -188,7 +188,7 @@ class TextProcessor:
             "temperature": ["heat", "cold", "warmth", "chill"],
         }
 
-    def _load_llm_config(self, config_path: str) -> Dict:
+    def _load_llm_config(self, config_path: str) -> dict:
         """
         Loads LLM configuration from a YAML file.
 
@@ -198,7 +198,7 @@ class TextProcessor:
             config_path: The path to the configuration file.
 
         Returns:
-            Dict: A dictionary containing LLM settings. Returns default settings if file is not found or parsing fails.
+            dict: A dictionary containing LLM settings. Returns default settings if file is not found or parsing fails.
         """
         try:
             with open(config_path, 'r') as f:
@@ -388,20 +388,20 @@ class TextProcessor:
         return ProcessorOutput(extracted_concepts=extracted_concepts, extracted_events=extracted_events)
 
 
-    def update_concept_map(self, concept: str, synonyms: List[str]):
+    def update_concept_map(self, concept: str, synonyms: list[str]):
         """
         Update the concept map with new synonyms or related terms for a concept.
         This is used by the default extract_concepts method.
 
         Args:
             concept (str): The concept (will be lemmatized) to update.
-            synonyms (List[str]): A list of synonyms or related terms (will be lemmatized) for the concept.
+            synonyms (list[str]): A list of synonyms or related terms (will be lemmatized) for the concept.
         """
         concept_lemma = self._get_lemma(concept)
         synonyms_lemmas = [self._get_lemma(s) for s in synonyms]
         self.concept_map[concept_lemma] = synonyms_lemmas
 
-    def detect_phase_shifts(self, text1: str, text2: str, delta_threshold: float = 0.1) -> List[ExtractedEvent]:
+    def detect_phase_shifts(self, text1: str, text2: str, delta_threshold: float = 0.1) -> list[ExtractedEvent]:
         """
         Detect phase shifts (significant changes) in concepts between two pieces of text
         using the default spaCy/TF-IDF based concept extraction.
@@ -416,7 +416,7 @@ class TextProcessor:
             delta_threshold (float): The minimum change in concept score to consider a phase shift. Defaults to 0.1.
 
         Returns:
-            List[ExtractedEvent]: A list of ExtractedEvent objects representing the phase shifts.
+            list[ExtractedEvent]: A list of ExtractedEvent objects representing the phase shifts.
         """
         # Use extract_concepts to get scores for both texts. 
         # It now returns ProcessorOutput, but we only need the concept scores for comparison here.
@@ -449,6 +449,7 @@ class TextProcessor:
                      event_type='phase_shift',
                      properties={
                          "source": "TFIDF_phase_shift_detection", 
+                         "concept_lemma": concept_lemma, # Add concept_lemma here
                          "delta_magnitude": abs(delta),
                          "text1_score": score1,
                          "text2_score": score2
