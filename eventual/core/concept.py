@@ -23,9 +23,15 @@ for entry in light_concept.get_history():
 ```
 
 """
-from typing import Any, Optional
+from typing import Any, Optional, Set
 from datetime import datetime
 from uuid import uuid4
+
+# Forward declaration for type hinting if Event is in a separate file and imported
+# This avoids circular import issues if Concept and Event reference each other.
+# from typing import TYPE_CHECKING
+# if TYPE_CHECKING:
+#     from .event import Event # Assuming Event is in event.py in the same directory
 
 class Concept:
     """
@@ -42,6 +48,7 @@ class Concept:
         state (float): The current state of the concept (numerical value).
         history (List[dict[str, Any]]): A history of state changes, including timestamps and deltas.
         metadata (dict[str, Any]): Additional metadata about the concept (e.g., source, context).
+        events (Set[Event]): A set of events this concept is part of.
     """
 
     def __init__(self, concept_id: Optional[str] = None, name: str = "", initial_state: float = 0.0, metadata: Optional[dict[str, Any]] = None):
@@ -59,6 +66,7 @@ class Concept:
         self.state = initial_state
         self.history = []  # Tracks state changes over time
         self.metadata = metadata if metadata else {}
+        self.events: Set[Any] = set() # Set of Event objects this concept is part of; Use Any to break circular dependency for now, or forward reference
 
         # Record the initial state in history
         self._record_state_change(initial_state, "Initial state")
@@ -134,4 +142,12 @@ class Concept:
         Returns:
             str: A string representation of the concept.
         """
-        return f"Concept(concept_id={self.concept_id}, name={self.name}, state={self.state}, history_length={len(self.history)})"
+        return f"Concept(concept_id={self.concept_id}, name={self.name}, state={self.state}, history_length={len(self.history)}, events_count={len(self.events)})"
+
+    def __eq__(self, other: Any) -> bool:
+        if not isinstance(other, Concept):
+            return False
+        return self.concept_id == other.concept_id
+
+    def __hash__(self) -> int:
+        return hash(self.concept_id)
