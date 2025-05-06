@@ -3,32 +3,45 @@
 
 The `InstanceStream` class is responsible for breaking down sensory event streams into granular instances. These instances represent the smallest meaningful units of data and are used to compute delta streams.
 
+This version assumes that the input stream (SensoryEventStream or similar) already provides the necessary
+concept information, so it no longer directly accesses the Hypergraph.
+
 ### Usage
 
 ```python
-from eventual.core import Hypergraph
 from eventual.streams import SensoryEventStream, InstanceStream
+from datetime import datetime
 
-# Initialize hypergraph and sensory event stream
-hypergraph = Hypergraph()
-sensory_event_stream = SensoryEventStream(hypergraph)
+# Assuming SensoryEventStream is defined and provides necessary concept information in its events
+# and a mock SensoryEventStream output for demonstration:
+class MockSensoryEventStream:
+    def process(self):
+        # Simulate events with concept IDs and values
+        return [
+            {"event_id": "event_1", "timestamp": datetime.now(), "concept_id": "light_1", "delta": 0.5},
+            {"event_id": "event_2", "timestamp": datetime.now(), "concept_id": "sound_2", "delta": 0.8}
+        ]
 
-# Add a sensor and ingest data
-sensory_event_stream.add_sensor("sensor_1", "text")
-sensory_event_stream.ingest("sensor_1", "The light is too bright.")
+sensory_event_stream = MockSensoryEventStream()
 
 # Process the sensory event stream into instances
-instance_stream = InstanceStream(hypergraph)
-instances = instance_stream.process_sensory_event_stream(sensory_event_stream)
+instance_stream = InstanceStream()
+instances = instance_stream.process(sensory_event_stream.process())
 
 print(instances)
 ```
 """
-from typing import Any, Optional
+from typing import Any, Optional, Dict, List
 from datetime import datetime
-from eventual.core import Concept, Event, Hypergraph
+# Removed import of Hypergraph, Concept, and Event
+# from eventual.core import Concept, Event, Hypergraph # No longer needs Hypergraph
+
+# Kept import of SensoryEventStream as that is the input stream
+# Update if SensoryEventStream also stops using Hypergraph directly
 from eventual.streams.sensory_event_stream import SensoryEventStream
-from eventual.utils.numerical_properties import normalize_value
+
+# Removed dependency on utils.numerical_properties - if it's needed it should be passed or instantiated within the class.
+# from eventual.utils.numerical_properties import normalize_value
 
 class Instance:
     """
@@ -39,7 +52,7 @@ class Instance:
         timestamp (datetime): The time at which the instance was created.
         concept_id (str): The ID of the concept associated with this instance.
         value (float): The numerical value of the instance.
-        metadata (dict[str, Any]): Additional metadata about the instance (e.g., source sensor, raw data).
+        metadata (dict[str, Any]): Additional metadata about the instance (e.g., source event ID).
     """
 
     def __init__(self, instance_id: str, timestamp: datetime, concept_id: str, value: float, metadata: Optional[dict[str, Any]] = None):
@@ -56,52 +69,55 @@ class InstanceStream:
     """
     A class for breaking down sensory event streams into granular instance streams.
 
-    The InstanceStream processes events from a SensoryEventStream and decomposes them into
+    The InstanceStream processes events from an input stream (e.g., SensoryEventStream) and decomposes them into
     individual instances, which represent the smallest meaningful units of data. These instances
     are then used to compute delta streams, which capture changes in concept states over time.
 
-    Attributes:
-        hypergraph (Hypergraph): The hypergraph where concepts and events are stored.
-        instances (list[Instance]): A list of instances generated from the sensory event stream.
+    This version is decoupled from the Hypergraph and relies on the input stream providing 
+    the necessary concept information.
     """
 
-    def __init__(self, hypergraph: Hypergraph):
+    # Removed hypergraph dependency
+    def __init__(self):
         """
-        Initialize the InstanceStream with a hypergraph.
+        Initialize the InstanceStream. No longer requires a hypergraph.
+        """
+        self.instances: List[Instance] = []
+
+    # Updated to take the event data directly, not the SensoryEventStream object
+    def process_event(self, event_data: Dict[str, Any]) -> List[Instance]:
+        """
+        Process a single event and decompose it into granular instances.
 
         Args:
-            hypergraph (Hypergraph): The hypergraph to store concepts and events.
-        """
-        self.hypergraph = hypergraph
-        self.instances = []
-
-    def process_event(self, event: Event) -> list[Instance]:
-        """
-        Process an event and decompose it into granular instances.
-
-        Args:
-            event (Event): The event to process.
+            event_data (Dict[str, Any]): A dictionary containing event information.  This is ASSUMED to have
+                                          'concept_id', 'timestamp', and 'delta' keys (or similar names).
 
         Returns:
-            list[Instance]: A list of instances generated from the event.
+            List[Instance]: A list of instances generated from the event.
         """
-        instances = []
+        instances: List[Instance] = []
 
-        # Extract the concept associated with the event
-        concept = self.hypergraph.concepts.get(event.concept.concept_id)
-        if not concept:
-            raise ValueError(f"Concept with ID {event.concept.concept_id} not found in hypergraph.")
+        # Now expects the necessary information to be *in* the event_data
+        concept_id = event_data.get("concept_id")
+        timestamp = event_data.get("timestamp")
+        delta = event_data.get("delta")
+
+        if concept_id is None or timestamp is None or delta is None:
+            print(f"Warning: Skipping event due to missing required keys (concept_id, timestamp, or delta): {event_data}")
+            return instances # Return empty list
 
         # Create an instance for the event
         instance_id = f"instance_{len(self.instances)}"
         instance = Instance(
             instance_id=instance_id,
-            timestamp=event.timestamp,
-            concept_id=concept.concept_id,
-            value=event.delta,
+            timestamp=timestamp,
+            concept_id=concept_id,
+            value=delta,
             metadata={
-                "event_id": event.event_id,
-                "concept_name": concept.name,
+                "event_id": event_data.get("event_id"),  # Presume event_id is also part of event_data
+                # Removed: concept_name - InstanceStream no longer needs it
+                # "concept_name": concept.name,
                 "source": "event",
             },
         )
@@ -112,22 +128,23 @@ class InstanceStream:
 
         return instances
 
-    def process_sensory_event_stream(self, sensory_event_stream: SensoryEventStream) -> list[Instance]:
+    # Updated to take a LIST of event data (dictionaries), not a SensoryEventStream object
+    def process(self, event_data_list: List[Dict[str, Any]]) -> List[Instance]:
         """
-        Process all events from a sensory event stream and decompose them into instances.
+        Process all events from a list of event data (dictionaries) and decompose them into instances.
 
         Args:
-            sensory_event_stream (SensoryEventStream): The sensory event stream to process.
+            event_data_list (List[Dict[str, Any]]): A list of dictionaries, where each dictionary represents an event.
 
         Returns:
-            list[Instance]: A list of instances generated from the sensory event stream.
+            List[Instance]: A list of instances generated from the events.
         """
-        instances = []
-        for event in sensory_event_stream.hypergraph.events:
-            instances.extend(self.process_event(event))
+        instances: List[Instance] = []
+        for event_data in event_data_list:
+            instances.extend(self.process_event(event_data))
         return instances
 
-    def get_instances_by_concept(self, concept_id: str) -> list[Instance]:
+    def get_instances_by_concept(self, concept_id: str) -> List[Instance]:
         """
         Retrieve all instances associated with a specific concept.
 
@@ -135,7 +152,7 @@ class InstanceStream:
             concept_id (str): The ID of the concept.
 
         Returns:
-            list[Instance]: A list of instances associated with the concept.
+            List[Instance]: A list of instances associated with the concept.
         """
         return [instance for instance in self.instances if instance.concept_id == concept_id]
 

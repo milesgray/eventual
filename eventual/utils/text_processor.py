@@ -1,76 +1,73 @@
 """
 # TextProcessor
 
-The `TextProcessor` module is responsible for extracting concepts and their numerical properties from text data. It uses advanced NLP techniques and potentially LLM calls to identify key concepts, calculate their relevance, and detect significant changes over time, storing these within a hypergraph structure.
+The `TextProcessor` module is responsible for extracting concepts and their numerical properties from text data. It uses advanced NLP techniques and potentially LLM calls to identify key concepts, calculate their relevance, and detect significant changes over time. Following the refactoring, it now returns standardized data structures (`ProcessorOutput`) instead of directly modifying a hypergraph.
 
 ## Usage
 
 ```python
 from eventual.utils.text_processor import TextProcessor
-from eventual.core import Hypergraph, Concept, Event
-
-# Initialize a hypergraph to store processed concepts and events
-hypergraph = Hypergraph()
+# Assuming Hypergraph, Concept, Event, and an Integrator class are available elsewhere
+# from eventual.core import Hypergraph, Concept, Event
+# from eventual.ingestors import HypergraphIntegrator
 
 # Initialize the TextProcessor (loads LLM config from eventual/config.yaml)
 processor = TextProcessor()
 
 # --- Using the default spaCy/TF-IDF concept extraction ---
 # Extract concepts from text using the default method (spaCy/TF-IDF)
-# This will also add the concepts to the hypergraph using their root forms (lemmas).
+# The processor now returns extracted data, it does NOT modify a hypergraph directly.
 text_tfidf = "The light is too bright, and the sounds are overwhelming. The sounding is also very loud."
 print("
 --- TF-IDF Concept Extraction ---")
-concepts_tfidf = processor.extract_concepts(text_tfidf, hypergraph=hypergraph)
-print("Concepts (TF-IDF scores - based on lemmas):", concepts_tfidf)
-print("Hypergraph after TF-IDF processing (Concepts count):", len(hypergraph.concepts))
-print("Hypergraph concepts after TF-IDF:", {c.name: c.state for c in hypergraph.concepts.values()}) # Show concept names (lemmas) and states
+processor_output_tfidf = processor.extract_concepts(text_tfidf)
+print("Extracted Concepts (TF-IDF scores - based on lemmas):", processor_output_tfidf.extracted_concepts)
+# To integrate this data into a hypergraph, you would pass it to an Integrator:
+# hypergraph = Hypergraph()
+# integrator = HypergraphIntegrator()
+# integrator.integrate(processor_output_tfidf, hypergraph)
+# print("Hypergraph concepts after TF-IDF:", {c.name: c.state for c in hypergraph.concepts.values()}) # Show concept names (lemmas) and states
 
 # --- Using the LLM-based concept and graph extraction ---
 # Extract concepts and build a graph using the LLM
-# The detected concepts and relationships will be added to the hypergraph using their root forms (lemmas).
-# Concepts are added as nodes, relationships as Events.
+# The processor now returns extracted data, it does NOT modify a hypergraph directly.
 text_llm = "Google released Gemini models. Gemini is a powerful AI model. Google is a tech company. Releasing models is complex."
 print("
 --- LLM Concept and Graph Extraction ---")
 # Note: This requires a valid LLM configuration in eventual/config.yaml and API keys set.
 try:
-    processor.extract_concepts_and_graph_llm(text_llm, hypergraph)
-    print("Hypergraph after LLM processing (Concepts count):", len(hypergraph.concepts))
-    print("Hypergraph after LLM processing (Events count):", len(hypergraph.events))
-    print("Hypergraph concepts after LLM:", {c.name: c.state for c in hypergraph.concepts.values()}) # Show concept names (lemmas) and states
-    print("Hypergraph events after LLM:", [(event.event_id, {c.name for c in event.concepts}) for event in hypergraph.events.values()]) # Show events and involved concept lemmas
+    processor_output_llm = processor.extract_concepts_and_graph_llm(text_llm)
+    print("Extracted Concepts from LLM:", processor_output_llm.extracted_concepts)
+    print("Extracted Events from LLM:", processor_output_llm.extracted_events)
+    # To integrate this data into a hypergraph:
+    # hypergraph_llm = Hypergraph() # Or use the same hypergraph instance
+    # integrator_llm = HypergraphIntegrator()
+    # integrator_llm.integrate(processor_output_llm, hypergraph_llm)
+    # print("Hypergraph concepts after LLM:", {c.name: c.state for c in hypergraph_llm.concepts.values()})
+    # print("Hypergraph events after LLM:", [(event.event_id, {c.name for c in event.concepts}) for event in hypergraph_llm.events.values()])
+
 except Exception as e:
     print(f"Skipping LLM processing due to error: {e}")
     print("Please ensure litellm is configured correctly with valid API keys.")
 
 # --- Detecting Phase Shifts ---
 # Detect phase shifts between two texts using the default method.
-# Pass the hypergraph to add Events representing detected phase shifts.
+# The processor now returns extracted data, it does NOT modify a hypergraph directly.
 text1 = "The room was dark and quiet."
 text2 = "The room is now bright and noisy."
 print(f"
 Detecting phase shifts between '{text1}' and '{text2}'")
-# extract_concepts is called internally, which will add concepts to hypergraph if they don't exist
-phase_shifts_data = processor.detect_phase_shifts(text1, text2, hypergraph=hypergraph, delta_threshold=0.1)
-print("Phase Shifts Detected (Concept Lemma, Delta):", phase_shifts_data)
-print("Hypergraph after Phase Shift detection (Concepts count):", len(hypergraph.concepts)) # Concepts might be added/updated indirectly
-print("Hypergraph after Phase Shift detection (Events count):", len(hypergraph.events)) # New Events for phase shifts
+# extract_concepts is called internally, it will return ProcessorOutput, 
+# and detect_phase_shifts will return ExtractedEvent objects representing the shifts.
+phase_shifts_events = processor.detect_phase_shifts(text1, text2, delta_threshold=0.1)
+print("Extracted Phase Shift Events (Concept Lemma, Delta):", [(e.concept_identifiers[0], e.delta) for e in phase_shifts_events if e.concept_identifiers])
+# To integrate phase shift events:
+# hypergraph_phases = Hypergraph() # Or use the same hypergraph instance
+# integrator_phases = HypergraphIntegrator()
+# # You would likely need a method in Integrator to handle a list of specific event objects
+# # integrator_phases.integrate_events(phase_shifts_events, hypergraph_phases)
+# # Concepts involved in these events would be added when integrating the events.
 
-# --- Inspecting the Hypergraph ---
-print("
---- Final Hypergraph Contents ---")
-print(f"Total Concepts in Hypergraph: {len(hypergraph.concepts)}")
-print(f"Total Events in Hypergraph: {len(hypergraph.events)}")
-
-# Example of how to access concepts and events:
-# for concept_id, concept in hypergraph.concepts.items():
-#     print(f"Concept ID: {concept_id}, Name (Lemma): {concept.name}, State: {concept.state}")
-#     print(f"  Related Events Count: {len(concept.events)}")
-
-# for event_id, event in hypergraph.events.items():
-#      concept_lemmas = [c.name for c in event.concepts]
-#      print(f"Event ID: {event_id}, Timestamp: {event.timestamp}, Concepts (Lemmas): {concept_lemmas}, Delta: {event.delta}, Metadata: {event.metadata}")
 ```
 
 ## Configuration
@@ -93,7 +90,7 @@ Ensure your environment variables are set correctly for the chosen LLM provider 
 ## Classes
 
 ### `TextProcessor`
-A class for processing text data to extract concepts and their numerical properties, integrating with a Hypergraph.
+A class for processing text data to extract concepts and their numerical properties, designed to work with an external Hypergraph via an Integrator.
 
 """
 from typing import Dict, List, Tuple, Any, Optional
@@ -110,19 +107,25 @@ import yaml
 from uuid import uuid4
 from datetime import datetime
 
-# Assuming Concept and Event classes are available in eventual.core
-from eventual.core.hypergraph import Hypergraph
-from eventual.core.concept import Concept
-from eventual.core.event import Event
+# Import the new processor output dataclasses
+from eventual.processors.processor_output import ProcessorOutput, ExtractedConcept, ExtractedEvent
+
+# Assuming Concept and Event classes are available in eventual.core (though TextProcessor won't instantiate them directly anymore)
+# from eventual.core.hypergraph import Hypergraph
+# from eventual.core.concept import Concept
+# from eventual.core.event import Event
 
 class TextProcessor:
     """
     A class for processing text data to extract concepts and their numerical properties.
 
     The TextProcessor uses NLP techniques and LLM calls to identify key concepts in text data
-    and assign numerical values or build relationships within a hypergraph structure.
-    It supports dynamic concept extraction, normalization, and integration with the Eventual framework,
-    using lemmatization to handle different word forms.
+    and assign numerical values or identify relationships. It now returns structured data
+    representing the extracted information, which can then be integrated into a Hypergraph
+    or other data store by a separate component (e.g., an Integrator).
+
+    It supports dynamic concept extraction, normalization, using lemmatization
+    to handle different word forms.
 
     Attributes:
         nlp (spacy.Language): A pre-trained spaCy NLP model for text processing.
@@ -226,21 +229,19 @@ class TextProcessor:
                 "top_p": 1.0,
             }
 
-    def extract_concepts(self, text: str, hypergraph: Optional[Hypergraph] = None, normalize: bool = True) -> Dict[str, float]:
+    def extract_concepts(self, text: str, normalize: bool = True) -> ProcessorOutput:
         """
         Extract concepts and their numerical values from text data using spaCy and TF-IDF.
-        Optionally adds detected concepts (lemmas) to a provided Hypergraph with their scores as initial state.
 
         Args:
             text (str): The input text data.
-            hypergraph (Optional[Hypergraph]): The Hypergraph instance to add concepts to. Defaults to None.
             normalize (bool): Whether to normalize the values to a range of [0, 1]. Defaults to True.
 
         Returns:
-            Dict[str, float]: A dictionary of concepts (lemmas) and their associated numerical values.
+            ProcessorOutput: An object containing the extracted concepts as ExtractedConcept instances.
         """
         if not text:
-            return {}
+            return ProcessorOutput()
 
         # Step 1: Preprocess the text and get tokens as lemmas
         doc = self.nlp(text)
@@ -248,7 +249,7 @@ class TextProcessor:
 
         # Step 2: Calculate TF-IDF scores for the text using lemmas
         if not tokens_lemma:
-            return {}
+            return ProcessorOutput()
 
         try:
             self.vectorizer.fit([" ".join(tokens_lemma)])
@@ -256,7 +257,7 @@ class TextProcessor:
             feature_names = self.vectorizer.get_feature_names_out()
             tfidf_scores = dict(zip(feature_names, tfidf_matrix.toarray()[0]))
         except ValueError: # Handle empty vocabulary case
-             return {}
+             return ProcessorOutput()
 
         # Step 3: Map lemmas to concepts using the concept map (which uses lemmas as keys)
         concept_scores = defaultdict(float)
@@ -273,41 +274,29 @@ class TextProcessor:
                 for concept_lemma in concept_scores:
                     concept_scores[concept_lemma] /= max_score
 
-        # Step 5: Add/ensure concepts (lemmas) in the hypergraph if provided
-        if hypergraph is not None and isinstance(hypergraph, Hypergraph):
-            for concept_lemma, score in concept_scores.items():
-                # Check if concept already exists by name (lemma)
-                existing_concept = None
-                # Iterate through concepts in the hypergraph and compare names (lemmas)
-                for existing_c in hypergraph.concepts.values():
-                    if existing_c.name.lower() == concept_lemma.lower(): # Ensure case-insensitive check
-                        existing_concept = existing_c
-                        break
-                        
-                if not existing_concept:
-                    # Add new concept to hypergraph with initial state from score
-                    new_concept_id = f"concept_{uuid4().hex}"
-                    new_concept = Concept(concept_id=new_concept_id, name=concept_lemma.lower(), initial_state=score) # Use lemma as concept name
-                    hypergraph.add_concept(new_concept)
-                    # print(f"Added concept from TF-IDF to hypergraph: {new_concept.name} (State: {new_concept.state})") # Optional logging
-                # Else: Concept already exists, for this method we don't update state based on single text score
+        # Step 5: Create ExtractedConcept instances
+        extracted_concepts = []
+        for concept_lemma, score in concept_scores.items():
+            # Do not assign concept_id here; that's the Integrator's job
+            extracted_concepts.append(ExtractedConcept(name=concept_lemma, initial_state=score))
 
-        return dict(concept_scores)
+        # Return ProcessorOutput
+        return ProcessorOutput(extracted_concepts=extracted_concepts)
 
-    def extract_concepts_and_graph_llm(self, text: str, hypergraph: Hypergraph):
+    def extract_concepts_and_graph_llm(self, text: str) -> ProcessorOutput:
         """
-        Detects concepts and relationships in text using an LLM based on configured settings
-        and adds them to the provided hypergraph.
-
-        Concepts are added as nodes and relationships as events connecting concepts, using their root forms (lemmas).
+        Detects concepts and relationships in text using an LLM based on configured settings.
+        Returns structured data representing the extracted information.
 
         Args:
             text: The input text to process.
-            hypergraph: The Hypergraph instance to add concepts and events to.
+
+        Returns:
+            ProcessorOutput: An object containing the extracted concepts and events/relationships.
         """
-        if not text or not isinstance(hypergraph, Hypergraph):
-            print("Warning: Invalid input text or hypergraph object.")
-            return
+        if not text:
+            print("Warning: Invalid input text.")
+            return ProcessorOutput()
 
         # Define the prompt for the LLM
         # Instruct the LLM to provide concepts and relationships using root forms (lemmas).
@@ -323,6 +312,9 @@ class TextProcessor:
 
         JSON Output:
         """
+
+        extracted_concepts = []
+        extracted_events = []
 
         try:
             # Call the LLM using litellm with configured parameters
@@ -352,88 +344,48 @@ class TextProcessor:
             except json.JSONDecodeError as e:
                  print(f"Error decoding JSON from LLM response: {e}")
                  print("LLM Response content:", response_content) # Print the raw response for debugging
-                 return # Exit the function if JSON is invalid
+                 return ProcessorOutput() # Return empty output on JSON error
 
             concepts_list = data.get("concepts", [])
             relationships_list = data.get("relationships", [])
 
-            # Add concepts to the hypergraph, using lemmas
+            # Create ExtractedConcept instances
             for concept_name in concepts_list:
                 concept_lemma = self._get_lemma(concept_name) # Get lemma of LLM concept name
+                # Do not assign concept_id here; that's the Integrator's job
+                extracted_concepts.append(ExtractedConcept(name=concept_lemma))
 
-                # Check if concept already exists in the hypergraph by name (lemma)
-                existing_concept = None
-                for existing_c in hypergraph.concepts.values():
-                    if existing_c.name.lower() == concept_lemma.lower(): # Ensure case-insensitive check
-                        existing_concept = existing_c
-                        break
-
-                if not existing_concept:
-                    # Create a new concept if it doesn't exist, using the lemma as the name
-                    new_concept_id = f"concept_{uuid4().hex}"
-                    new_concept = Concept(concept_id=new_concept_id, name=concept_lemma, initial_state=0.0) 
-                    hypergraph.add_concept(new_concept)
-                    # print(f"Added new concept from LLM to hypergraph: {new_concept.name}") # Optional logging
-                # Else: Concept already exists, use it for relationships
-
-            # Add relationships as events to the hypergraph, using lemmas to find concepts
+            # Create ExtractedEvent instances for relationships
             for relation in relationships_list:
                 if len(relation) == 2:
                     concept_a_name, concept_b_name = relation
                     concept_a_lemma = self._get_lemma(concept_a_name) # Get lemma
                     concept_b_lemma = self._get_lemma(concept_b_name) # Get lemma
 
-                    # Find the corresponding Concept objects in the hypergraph by lemma (name)
-                    concept_a_obj = None
-                    concept_b_obj = None
+                    # ExtractedEvent refers to concepts by their names (lemmas in this case)
+                    # The Integrator will resolve these names to actual Concept objects in the hypergraph.
+                    involved_concept_identifiers = [concept_a_lemma, concept_b_lemma]
 
-                    # Search through the hypergraph's concepts
-                    for concept_obj in hypergraph.concepts.values():
-                        if concept_obj.name.lower() == concept_a_lemma.lower(): # Check against lemma
-                            concept_a_obj = concept_obj
-                        if concept_obj.name.lower() == concept_b_lemma.lower(): # Check against lemma
-                            concept_b_obj = concept_obj
-                        if concept_a_obj and concept_b_obj:
-                            break # Found both, can stop searching
-
-                    if concept_a_obj and concept_b_obj:
-                        # Create an event representing the relationship
-                        event_id = f"event_{uuid4().hex}"
-                        # An event needs a set of concepts it involves
-                        involved_concepts = {concept_a_obj, concept_b_obj}
-                        # Delta can be 0 or a small value; reason indicates origin
-                        relationship_event = Event(
-                            event_id=event_id,
-                            timestamp=datetime.now(),
-                            concepts=involved_concepts,
-                            delta=0.0, # No state change implied by just a relationship
-                            metadata={"source": "LLM_concept_extraction", "relationship": f"{concept_a_lemma} <-> {concept_b_lemma}"}
-                        )
-                        # Check if a similar event already exists between these two concepts based on their lemmas
-                        event_exists = False
-                        for concept_obj in involved_concepts:
-                            for existing_event in concept_obj.events:
-                                # Check if the set of concepts in the existing event (based on lemmas) matches the current pair
-                                existing_event_concept_lemmas = {c.name.lower() for c in existing_event.concepts}
-                                current_concept_lemmas = {c.name.lower() for c in involved_concepts}
-                                if existing_event_concept_lemmas == current_concept_lemmas:
-                                     event_exists = True
-                                     break
-                            if event_exists:
-                                break # No need to check further if duplicate found
-
-                        if not event_exists:
-                             hypergraph.add_event(relationship_event)
-                             # print(f"Added event to hypergraph between {concept_a_lemma} and {concept_b_lemma}") # Optional logging
-                        # else:
-                             # print(f"Skipping duplicate event between {concept_a_lemma} and {concept_b_lemma}") # Optional logging
-
-                    else:
-                        # This case should be less likely now that we add all LLM concepts first and use lemmas for lookup
-                        print(f"Warning: Could not find concepts (lemmas) for relationship {[concept_a_lemma, concept_b_lemma]} in hypergraph. Skipping event creation.")
+                    # Create an ExtractedEvent representing the relationship
+                    # Do not assign event_id here; that's the Integrator's job
+                    relationship_event = ExtractedEvent(
+                        concept_identifiers=involved_concept_identifiers,
+                        timestamp=datetime.now(),
+                        delta=0.0, # No state change implied by just a relationship
+                        event_type='relationship',
+                        properties={
+                            "source": "LLM_concept_extraction", 
+                            "relationship_type": "generic_relation" # Could be more specific if LLM provides it
+                         }
+                    )
+                    extracted_events.append(relationship_event)
 
         except Exception as e:
-            print(f"Error during LLM call or hypergraph update: {e}")
+            print(f"Error during LLM call: {e}")
+            # Continue and return whatever was extracted before the error, or an empty output
+
+        # Return ProcessorOutput
+        return ProcessorOutput(extracted_concepts=extracted_concepts, extracted_events=extracted_events)
 
 
     def update_concept_map(self, concept: str, synonyms: List[str]):
@@ -449,79 +401,59 @@ class TextProcessor:
         synonyms_lemmas = [self._get_lemma(s) for s in synonyms]
         self.concept_map[concept_lemma] = synonyms_lemmas
 
-    def detect_phase_shifts(self, text1: str, text2: str, hypergraph: Optional[Hypergraph] = None, delta_threshold: float = 0.1) -> List[Tuple[str, float]]:
+    def detect_phase_shifts(self, text1: str, text2: str, delta_threshold: float = 0.1) -> List[ExtractedEvent]:
         """
         Detect phase shifts (significant changes) in concepts between two pieces of text
         using the default spaCy/TF-IDF based concept extraction.
-        Optionally adds corresponding Events to a provided Hypergraph for detected shifts.
+        Returns a list of ExtractedEvent objects for detected shifts.
 
-        Concepts involved in phase shifts are added to the hypergraph if they don't exist
-        (via the internal call to `extract_concepts`). An Event is created for each concept
-        exceeding the delta threshold, representing the change.
-        Concepts and deltas in the returned list are based on concept lemmas.
+        The concepts themselves are extracted by calling `extract_concepts` internally,
+        but this method focuses on identifying the *change* and representing it as an event.
 
         Args:
             text1 (str): The first text for comparison.
             text2 (str): The second text for comparison.
-            hypergraph (Optional[Hypergraph]): The Hypergraph instance to add phase shift Events to. Defaults to None.
             delta_threshold (float): The minimum change in concept score to consider a phase shift. Defaults to 0.1.
 
         Returns:
-            List[Tuple[str, float]]: A list of tuples containing the concept lemma and the magnitude of change (delta).
-            The delta is directional (score2 - score1) when a hypergraph is provided, otherwise absolute.
+            List[ExtractedEvent]: A list of ExtractedEvent objects representing the phase shifts.
         """
-        # Use extract_concepts to get scores for both texts. Pass hypergraph to ensure concepts (lemmas) are added.
-        concepts1 = self.extract_concepts(text1, hypergraph=hypergraph, normalize=True)
-        concepts2 = self.extract_concepts(text2, hypergraph=hypergraph, normalize=True)
+        # Use extract_concepts to get scores for both texts. 
+        # It now returns ProcessorOutput, but we only need the concept scores for comparison here.
+        concepts1_output = self.extract_concepts(text1, normalize=True)
+        concepts2_output = self.extract_concepts(text2, normalize=True)
 
-        phase_shifts_data = []
-        all_concepts_lemmas = set(concepts1.keys()).union(set(concepts2.keys()))
+        # Convert ExtractedConcept lists to dictionaries for easier score lookup
+        concepts1_scores = {c.name: c.initial_state for c in concepts1_output.extracted_concepts}
+        concepts2_scores = {c.name: c.initial_state for c in concepts2_output.extracted_concepts}
+
+        phase_shift_events = []
+        all_concepts_lemmas = set(concepts1_scores.keys()).union(set(concepts2_scores.keys()))
         
-        # Process and add phase shift events if hypergraph is provided
-        if hypergraph is not None and isinstance(hypergraph, Hypergraph):
-            for concept_lemma in all_concepts_lemmas:
-                score1 = concepts1.get(concept_lemma, 0.0)
-                score2 = concepts2.get(concept_lemma, 0.0)
-                delta = score2 - score1 # Use directional delta for events and returned data when hypergraph is used
+        for concept_lemma in all_concepts_lemmas:
+            score1 = concepts1_scores.get(concept_lemma, 0.0)
+            score2 = concepts2_scores.get(concept_lemma, 0.0)
+            delta = score2 - score1 # Use directional delta for the event
 
-                # Find the concept in the hypergraph (should exist after calling extract_concepts) by lemma (name)
-                existing_concept = None
-                for existing_c in hypergraph.concepts.values():
-                    if existing_c.name.lower() == concept_lemma.lower(): # Check against lemma
-                        existing_concept = existing_c
-                        break
-                
-                if existing_concept and abs(delta) > delta_threshold:  # Check against the threshold
-                    # Append directional delta to the returned list
-                    phase_shifts_data.append((concept_lemma, delta))
+            if abs(delta) > delta_threshold:  # Check against the threshold
+                 # Create an ExtractedEvent for the phase shift
+                 # The event involves the concept that changed, identified by its lemma (name)
+                 involved_concept_identifiers = [concept_lemma]
 
-                    # Create an event for the phase shift
-                    event_id = f"event_{uuid4().hex}"
-                    # The event involves the concept that changed
-                    involved_concepts = {existing_concept}
-                    # The delta of the event represents the change in the concept's state/score
-                    phase_shift_event = Event(
-                        event_id=event_id,
-                        timestamp=datetime.now(),
-                        concepts=involved_concepts,
-                        delta=delta, 
-                        metadata={
-                            "source": "TFIDF_phase_shift_detection", 
-                            "concept_lemma": concept_lemma, # Store lemma in metadata
-                            "delta_magnitude": abs(delta),
-                            "text1_score": score1,
-                            "text2_score": score2
-                        }
-                    )
-                    hypergraph.add_event(phase_shift_event)
-                    # print(f"Added phase shift event for {concept_lemma} with delta {delta}") # Optional logging
+                 # Create an ExtractedEvent representing the phase shift
+                 # Do not assign event_id here; that's the Integrator's job
+                 phase_shift_event = ExtractedEvent(
+                     concept_identifiers=involved_concept_identifiers,
+                     timestamp=datetime.now(),
+                     delta=delta, 
+                     event_type='phase_shift',
+                     properties={
+                         "source": "TFIDF_phase_shift_detection", 
+                         "delta_magnitude": abs(delta),
+                         "text1_score": score1,
+                         "text2_score": score2
+                     }
+                 )
+                 phase_shift_events.append(phase_shift_event)
 
-        else: # If no hypergraph is provided, just return the phase shifts data as before (absolute delta)
-             for concept_lemma in all_concepts_lemmas:
-                score1 = concepts1.get(concept_lemma, 0.0)
-                score2 = concepts2.get(concept_lemma, 0.0)
-                delta = abs(score1 - score2) # Return absolute delta for backward compatibility
-                if delta > delta_threshold:  # Check against the threshold
-                    phase_shifts_data.append((concept_lemma, delta))
-
-        return phase_shifts_data
+        return phase_shift_events

@@ -3,8 +3,18 @@ import litellm
 import os
 import json
 import yaml
+from typing import Dict, List, Any, Optional
+from eventual.processors.processor_output import ProcessorOutput, ExtractedConcept, ExtractedEvent
+from datetime import datetime
+from uuid import uuid4 # Assuming we might need a temp ID if the ExtractedConcept doesn't provide one
 
 class ConceptDetector:
+    """
+    Detects concepts and relationships in text using an LLM.
+
+    Following refactoring, it now returns structured data (`ProcessorOutput`)
+    for integration into a Hypergraph or other data store by a separate component.
+    """
     def __init__(self, config_path="eventual/config.yaml"):
         """
         Initializes the ConceptDetector with configuration from a YAML file.
@@ -38,21 +48,20 @@ class ConceptDetector:
             print(f"Error parsing config file {config_path}: {e}. Using default settings.")
             return {}
 
-    def detect_concepts_and_build_graph(self, text: str) -> dict:
+    def detect_concepts_and_build_graph(self, text: str) -> ProcessorOutput:
         """
-        Detects concepts in text using an LLM based on configured settings
-        and builds a dynamic graph.
+        Detects concepts and relationships in text using an LLM based on configured settings.
+        Returns structured data representing the extracted information.
 
         Args:
             text: The input text to process.
 
         Returns:
-            A dictionary representing the concept graph, where keys are concepts
-            and values are lists of related concepts. Returns an empty dictionary
-            if concept detection fails or text is empty.
+            ProcessorOutput: An object containing the extracted concepts and events/relationships.
+            Returns an empty ProcessorOutput if detection fails or text is empty.
         """
         if not text:
-            return {}
+            return ProcessorOutput()
 
         # Define the prompt for the LLM
         # We ask the LLM to output concepts and relationships in a simple, parsable format.
@@ -69,6 +78,9 @@ class ConceptDetector:
 
         JSON Output:
         """
+
+        extracted_concepts = []
+        extracted_events = []
 
         try:
             # Call the LLM using litellm with configured parameters
@@ -87,35 +99,80 @@ class ConceptDetector:
             if response_content.startswith("```json"):
                 response_content = response_content[len("```json"):].rstrip("```")
 
-            data = json.loads(response_content)
+            try:
+                data = json.loads(response_content)
+            except json.JSONDecodeError as e:
+                 print(f"Error decoding JSON from LLM response: {e}")
+                 print("LLM Response content:", response_content) # Print the raw response for debugging
+                 return ProcessorOutput() # Return empty output on JSON error
 
-            concepts = data.get("concepts", [])
-            relationships = data.get("relationships", [])
+            concepts_list = data.get("concepts", [])
+            relationships_list = data.get("relationships", [])
 
-            # Build the graph dictionary
-            concept_graph = {}
-            for concept in concepts:
-                concept_graph[concept] = []
+            # Create ExtractedConcept instances
+            for concept_name in concepts_list:
+                # ConceptDetector doesn't assign IDs, that's for the Integrator
+                extracted_concepts.append(ExtractedConcept(name=concept_name))
 
-            for relation in relationships:
+            # Create ExtractedEvent instances for relationships
+            for relation in relationships_list:
                 if len(relation) == 2:
-                    concept_a, concept_b = relation
-                    if concept_a in concept_graph:
-                        concept_graph[concept_a].append(concept_b)
-                    # Optional: add bidirectional relationship
-                    # if concept_b in concept_graph:
-                    #     concept_graph[concept_b].append(concept_a)
+                    concept_a_name, concept_b_name = relation
+                    # ExtractedEvent refers to concepts by their names
+                    involved_concept_identifiers = [concept_a_name, concept_b_name]
 
-            return concept_graph
+                    # Create an ExtractedEvent representing the relationship
+                    # Event ID is assigned by the Integrator
+                    relationship_event = ExtractedEvent(
+                        concept_identifiers=involved_concept_identifiers,
+                        timestamp=datetime.now(),
+                        delta=0.0, # No state change implied by just a relationship
+                        event_type='relationship',
+                        properties={
+                            "source": "ConceptDetector_LLM", 
+                            "relationship": f"{concept_a_name} <-> {concept_b_name}" # Store original names/relation
+                         }
+                    )
+                    extracted_events.append(relationship_event)
 
         except Exception as e:
             print(f"Error during LLM call or concept extraction: {e}")
-            # Return an empty graph in case of failure
-            return {}
+            # Continue and return whatever was extracted before the error, or an empty output
+
+        # Return ProcessorOutput
+        return ProcessorOutput(extracted_concepts=extracted_concepts, extracted_events=extracted_events)
 
 # Example Usage (for testing, not part of the class)
 # if __name__ == "__main__":
+#     # Need a dummy config.yaml or ensure one exists for initialization
+#     # Example of creating a dummy config.yaml if it doesn't exist
+#     dummy_config_path = "eventual/config.yaml"
+#     if not os.path.exists(dummy_config_path):
+#         print(f"Creating a dummy config file at {dummy_config_path}")
+#         dummy_config_content = """
+# llm_settings:
+#   model: "gpt-4o"
+#   temperature: 0.7
+# """
+#         try:
+#             # Ensure the eventual directory exists before writing
+#             os.makedirs("eventual", exist_ok=True)
+#             with open(dummy_config_path, "w") as f:
+#                 f.write(dummy_config_content)
+#         except Exception as e:
+#             print(f"Error creating dummy config file: {e}")
+
 #     detector = ConceptDetector()
 #     sample_text = "Google released Gemini models. Gemini is a powerful AI model."
-#     graph = detector.detect_concepts_and_build_graph(sample_text)
-#     print(json.dumps(graph, indent=2))
+#     processor_output = detector.detect_concepts_and_build_graph(sample_text)
+#     print("Extracted Concepts:", processor_output.extracted_concepts)
+#     print("Extracted Events:", processor_output.extracted_events)
+
+#     # To integrate this output:
+#     # from eventual.core.hypergraph import Hypergraph
+#     # from eventual.ingestors.hypergraph_integrator import HypergraphIntegrator
+#     # hypergraph = Hypergraph()
+#     # integrator = HypergraphIntegrator()
+#     # integrator.integrate(processor_output, hypergraph)
+#     # print("Hypergraph concepts after integration:", hypergraph.concepts)
+#     # print("Hypergraph events after integration:", hypergraph.events)
