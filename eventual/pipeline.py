@@ -20,7 +20,7 @@ languages:
   - code: de
     name: German
 
-steps: [1, 2, 3, 5, 11] # Example steps including the new text processing step (11)
+steps: [1, 2, 3, 5, 11, 12] # Example steps including the new chat processing step (12)
 
 data_sources:
   wikipedia:
@@ -42,8 +42,8 @@ Run the pipeline from the command line:
 python -m eventual.pipeline example_config.yaml
 ```
 
-If step `11` is included in the `steps` configuration, the text processing
-and hypergraph integration example flow will be executed.
+If step `12` is included in the `steps` configuration, the chat processing
+flow example flow will be executed.
 
 ## Classes
 
@@ -52,6 +52,7 @@ The main class that orchestrates the pipeline steps.
 
 """
 import argparse
+import os
 from datetime import datetime
 from typing import Optional
 from dataclasses import dataclass, field
@@ -64,6 +65,7 @@ from rdflib import Graph, URIRef, Literal  # For RDF/triple output (example)
 from .core.hypergraph import Hypergraph
 from .processors.text_processor import TextProcessor
 from .ingestors.hypergraph_integrator import HypergraphIntegrator
+from .ingestors.chat_ingestor import ChatIngestor
 from .processors.processor_output import ProcessorOutput, ExtractedEvent # Import ExtractedEvent for phase shifts
 from .data import DataExtractor, DataIntegrator # Existing imports
 
@@ -269,6 +271,22 @@ class EventualPipeline:
         print("Text processing and hypergraph integration complete.")
         # Optional: Add a step here to visualize or save the final hypergraph state
 
+    def _run_chat_processing_flow(self, chat_message: str):
+        """Step 12: Run the chat processing and hypergraph integration flow."""
+        print("Step 12: Running chat processing and hypergraph integration...")
+        # Initialize TextProcessor and ChatIngestor
+        processor = TextProcessor(config_path="eventual/config.yaml")
+        ingestor = ChatIngestor(text_processor=processor)
+        integrator = HypergraphIntegrator()
+
+        # Process the chat message
+        processor_output = ingestor.ingest(chat_message)
+
+        # Integrate into the hypergraph
+        integrator.integrate(processor_output, self.hypergraph)
+        print(f"Hypergraph state after chat message processing: {self.hypergraph}")
+
+        print("Chat processing and hypergraph integration complete.")
 
     def run(self):
         """Run the pipeline based on the configured steps."""
@@ -304,6 +322,10 @@ class EventualPipeline:
         # Run the new text processing flow if configured
         if 11 in self.config.steps:
             self._run_text_processing_flow()
+
+        # Run the new chat processing flow if configured
+        if 12 in self.config.steps:
+            self._run_chat_processing_flow("The user is experiencing slow response times.")
 
         print("Pipeline execution complete.")
 
@@ -367,7 +389,7 @@ data_sources: {}
             os.makedirs("eventual", exist_ok=True)
             with open(dummy_config_path, "w") as f:
                 f.write(dummy_config_content)
-        except Exception as e:
+        except Exception as e):
             print(f"Error creating dummy config file: {e}")
             # Continue execution, load_config will likely fail or use defaults
 
@@ -388,7 +410,7 @@ data_sources: {}
         try:
              with open(dummy_pipeline_config_path, "w") as f:
                 f.write(dummy_pipeline_config_content)
-        except Exception as e:
+        except Exception as e):
             print(f"Error creating dummy pipeline config file: {e}")
 
     main()
