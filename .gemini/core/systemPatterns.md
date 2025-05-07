@@ -14,7 +14,7 @@
 **Description**: Creates and maintains comprehensive documentation.
 
 **Steps**:
-1.  Create a task log for each task.
+1.  Create a task log for each task. Task log filenames should include a unique identifier (e.g., timestamp or UUID) to avoid collisions.
 2.  Update the relevant memory files (e.g., `activeContext.md`, `progress.md`).
 3.  Commit the changes to git.
 
