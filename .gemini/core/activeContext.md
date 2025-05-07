@@ -1,1 +1,1 @@
-Current task: Implement Knowledge Retrieval
+Current task: Implement Situational Awareness Adapter
