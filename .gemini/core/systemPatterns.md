@@ -7,6 +7,7 @@
 **Steps**:
 1.  Create the necessary directories and files in the `.gemini/` directory if they don't exist.
 2.  Load the existing context from the files.
+3.  Activate the virtual environment using `source env/bin/activate`.
 
 ### 2. Documentation Workflow
 
