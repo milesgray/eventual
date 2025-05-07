@@ -1,1 +1,1 @@
-Current task: Implement Chat Ingestor
+Current task: Implement Knowledge Retrieval
