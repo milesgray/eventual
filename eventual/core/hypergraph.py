@@ -37,9 +37,11 @@ event = Event(
 hypergraph.add_event(event)
 ```
 """
-from typing import Optional
+from typing import Optional, List, Set, Tuple
 from eventual.core.event import Event
 from eventual.core.concept import Concept
+from datetime import datetime, timedelta
+import spacy # Import spacy for query processing
 
 class Hypergraph:
     """
@@ -51,6 +53,7 @@ class Hypergraph:
         concepts (dict[str, Concept]): A dictionary of concepts, keyed by concept ID.
         events (dict[str, Event]): A dictionary of events, keyed by event ID.
         _concept_names (dict[str, str]): Internal dictionary mapping concept names to concept IDs for efficient lookup.
+        _nlp (spacy.Language): spaCy language model for query processing.
     """
 
     def __init__(self):
@@ -60,6 +63,30 @@ class Hypergraph:
         self.concepts: dict[str, Concept] = {}
         self.events: dict[str, Event] = {}
         self._concept_names: dict[str, str] = {}
+        try:
+            self._nlp = spacy.load("en_core_web_sm")
+        except OSError:
+            print("Downloading spaCy model 'en_core_web_sm'...")
+            from spacy.cli import download
+            download("en_core_web_sm")
+            self._nlp = spacy.load("en_core_web_sm")
+
+
+    def _get_lemma(self, text: str) -> str:
+        """Gets the root form (lemma) of a single word or short phrase using spaCy.
+
+        Args:
+            text: The input text.
+
+        Returns:
+            The lemma of the text.
+        """
+        if not text:
+            return ""
+        doc = self._nlp(text)
+        if doc and doc[0]:
+            return doc[0].lemma_.lower()
+        return text.lower() # Fallback to lower case if lemmatization fails
 
     def add_concept(self, concept: Concept):
         """
@@ -117,7 +144,7 @@ class Hypergraph:
 
         Returns:
             Concept: The existing or newly added concept.
-        """
+        """\
         # Check by ID first (primary key)
         existing_concept_by_id = self.get_concept(concept.concept_id)
         if existing_concept_by_id:
@@ -240,6 +267,74 @@ class Hypergraph:
             if event.concepts == target_concepts:
                 matching_events.append(event)
         return matching_events
+
+    def search_concepts_by_name(self, keyword: str) -> List[Concept]:
+        """
+        Search for concepts whose name (lemma) contains the given keyword (case-insensitive).
+
+        Args:
+            keyword (str): The keyword to search for within concept names.
+
+        Returns:
+            List[Concept]: A list of concepts whose names contain the keyword.
+        """
+        keyword_lower = keyword.lower()
+        matching_concepts = []
+        for concept in self.concepts.values():
+            if keyword_lower in concept.name.lower():
+                matching_concepts.append(concept)
+        return matching_concepts
+
+    def get_recent_events(self, time_window: timedelta) -> List[Event]:
+        """
+        Retrieve events that occurred within the specified time window before the current time.
+
+        Args:
+            time_window (timedelta): The time window (e.g., timedelta(hours=1), timedelta(days=7)).
+
+        Returns:
+            List[Event]: A list of events within the time window, ordered by timestamp (most recent first).
+        """
+        now = datetime.now()
+        recent_events = []
+        for event in self.events.values():
+            if now - event.timestamp <= time_window:
+                recent_events.append(event)
+        # Sort by timestamp in descending order (most recent first)
+        recent_events.sort(key=lambda event: event.timestamp, reverse=True)
+        return recent_events
+
+    def retrieve_knowledge(self, query: str) -> Tuple[List[Concept], List[Event]]:
+        """
+        Retrieve relevant concepts and events based on a query string.
+
+        Args:
+            query (str): The query string.
+
+        Returns:
+            Tuple[List[Concept], List[Event]]: A tuple containing a list of relevant concepts
+                                              and a list of relevant events.
+        """
+        # 1. Tokenize and lemmatize the query string.
+        doc = self._nlp(query)
+        query_lemmas = {token.lemma_.lower() for token in doc if not token.is_stop and token.is_alpha}
+
+        # 2. Find concepts in the hypergraph whose names (lemmas) match the lemmatized terms from the query.
+        relevant_concepts: Set[Concept] = set()
+        for concept in self.concepts.values():
+            if concept.name.lower() in query_lemmas:
+                relevant_concepts.add(concept)
+
+        # 3. Collect all events that involve these matched concepts.
+        relevant_events: Set[Event] = set()
+        for concept in relevant_concepts:
+            # Access events directly from the concept object in the hypergraph
+            stored_concept = self.get_concept(concept.concept_id)
+            if stored_concept:
+                relevant_events.update(stored_concept.events)
+
+        # 4. Return the set of relevant concepts and events.
+        return list(relevant_concepts), list(relevant_events)
 
     def __repr__(self):
         return f"Hypergraph(concepts={len(self.concepts)}, events={len(self.events)})"
