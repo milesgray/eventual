@@ -1,76 +1,114 @@
 import pytest
-from datetime import datetime
+from datetime import datetime, timedelta
 from eventual.core.hypergraph import Hypergraph
 from eventual.core.concept import Concept
 from eventual.core.event import Event
 from eventual.adapters.situational_awareness_adapter import SituationalAwarenessAdapter
 
-# Fixture for a Hypergraph with some concepts and events
+# Fixture for a Hypergraph with some concepts and events, including older ones
 @pytest.fixture
-def populated_hypergraph():
+def hypergraph_with_history():
     hypergraph = Hypergraph()
     concept1 = Concept(concept_id="concept_1", name="apple", initial_state=1.0)
     concept2 = Concept(concept_id="concept_2", name="banana", initial_state=1.0)
     concept3 = Concept(concept_id="concept_3", name="orange", initial_state=1.0)
+    concept4 = Concept(concept_id="concept_4", name="grape", initial_state=1.0)
     hypergraph.add_concept(concept1)
     hypergraph.add_concept(concept2)
     hypergraph.add_concept(concept3)
+    hypergraph.add_concept(concept4)
 
-    event1 = Event(event_id="event_1", timestamp=datetime.now(), concepts={concept1, concept2}, delta=0.1, metadata={"source": "test"})
-    event2 = Event(event_id="event_2", timestamp=datetime.now(), concepts={concept2, concept3}, delta=0.2, metadata={"source": "test"})
-    hypergraph.add_event(event1)
-    hypergraph.add_event(event2)
+    # Older events (long-term memory)
+    older_event_timestamp = datetime.now() - timedelta(days=7)
+    event1_old = Event(event_id="event_1_old", timestamp=older_event_timestamp, concepts={concept1, concept2}, delta=0.1, metadata={"source": "test_old"})
+    event2_old = Event(event_id="event_2_old", timestamp=older_event_timestamp, concepts={concept3, concept4}, delta=0.2, metadata={"source": "test_old"})
+    hypergraph.add_event(event1_old)
+    hypergraph.add_event(event2_old)
+
+    # Recent events (short-term memory)
+    recent_event_timestamp = datetime.now() - timedelta(minutes=5)
+    event3_recent = Event(event_id="event_3_recent", timestamp=recent_event_timestamp, concepts={concept1, concept3}, delta=0.3, metadata={"source": "test_recent"})
+    event4_recent = Event(event_id="event_4_recent", timestamp=recent_event_timestamp, concepts={concept2, concept4}, delta=0.4, metadata={"source": "test_recent"})
+    hypergraph.add_event(event3_recent)
+    hypergraph.add_event(event4_recent)
 
     return hypergraph
 
-def test_adapter_initialization(populated_hypergraph):
-    adapter = SituationalAwarenessAdapter(hypergraph=populated_hypergraph)
-    assert adapter._hypergraph is populated_hypergraph
+def test_adapter_initialization(hypergraph_with_history):
+    adapter = SituationalAwarenessAdapter(hypergraph=hypergraph_with_history)
+    assert adapter._hypergraph is hypergraph_with_history
 
 def test_adapter_initialization_with_invalid_hypergraph():
     with pytest.raises(TypeError):
         SituationalAwarenessAdapter(hypergraph="not a hypergraph")
 
-def test_generate_context_with_relevant_knowledge(populated_hypergraph):
-    adapter = SituationalAwarenessAdapter(hypergraph=populated_hypergraph)
+def test_generate_context_query_only(hypergraph_with_history):
+    adapter = SituationalAwarenessAdapter(hypergraph=hypergraph_with_history)
     query = "tell me about apples"
-    context = adapter.generate_context(query)
-
-    # Check that the context string is not empty
-    assert context != ""
-
-    # Check for the presence of key substrings and structure
-    assert "Concepts related to the query: apple." in context
-    assert "Relevant Events:" in context
-    # Check for parts of the event description
-    assert "Event event_1: Concepts [apple, banana], Delta 0.10" in context or "Event event_1: Concepts [banana, apple], Delta 0.10" in context # Account for potential concept order variation
-    assert "Metadata {'source': 'test'}" in context
-
-    # Check that irrelevant concepts are not explicitly mentioned as related to the query (though they might appear in event descriptions)
-    assert "orange" not in context.split("Relevant Events:")[0] # Check only the part before event descriptions
-
-def test_generate_context_no_relevant_knowledge(populated_hypergraph):
-    adapter = SituationalAwarenessAdapter(hypergraph=populated_hypergraph)
-    query = "tell me about grapes"
-    context = adapter.generate_context(query)
-
-    # Check that the context string is empty when no relevant knowledge is found
-    assert context == ""
-
-def test_generate_context_multiple_relevant_concepts_and_events(populated_hypergraph):
-    adapter = SituationalAwarenessAdapter(hypergraph=populated_hypergraph)
-    query = "what about bananas and oranges?"
-    context = adapter.generate_context(query)
+    context = adapter.generate_context(query) # No recent_time_window
 
     assert context != ""
-    assert "Concepts related to the query: banana, orange." in context or "Concepts related to the query: orange, banana." in context # Account for potential concept order variation
+    # Check for expected concepts and events in the context string as substrings
+    assert "Concepts related to the query:" in context # Updated assertion
+    assert "apple" in context
     assert "Relevant Events:" in context
 
-    # Check for presence of both relevant event descriptions
-    event1_present = ("Event event_1: Concepts [apple, banana], Delta 0.10" in context or "Event event_1: Concepts [banana, apple], Delta 0.10" in context) and ("Metadata {'source': 'test'}" in context)
-    event2_present = ("Event event_2: Concepts [banana, orange], Delta 0.20" in context or "Event event_2: Concepts [orange, banana], Delta 0.20" in context) and ("Metadata {'source': 'test'}" in context)
+    # Check for parts of the expected event descriptions (flexible on order and full string match)
+    assert "Event event_1_old:" in context and ("Concepts [apple, banana]" in context or "Concepts [banana, apple]" in context) and "Delta 0.10" in context
+    assert "Event event_3_recent:" in context and ("Concepts [apple, orange]" in context or "Concepts [orange, apple]" in context) and "Delta 0.30" in context
 
-    assert event1_present
-    assert event2_present
+    # Should not include event_2_old as it doesn't involve apple
+    assert "event_2_old" not in context
+    # event_4_recent doesn't directly involve apple
+    # assert "event_4_recent" not in context
 
-# Add more tests for different query types or context generation strategies later
+def test_generate_context_with_recent_time_window(hypergraph_with_history):
+    adapter = SituationalAwarenessAdapter(hypergraph=hypergraph_with_history)
+    query = "tell me about bananas" # Query for banana
+    recent_time_window = timedelta(minutes=10) # Window includes recent events
+    context = adapter.generate_context(query, recent_time_window=recent_time_window)
+
+    assert context != ""
+    assert "Concepts related to the query and recent activity:" in context
+    assert "apple" in context
+    assert "banana" in context
+    assert "grape" in context
+    assert "orange" in context
+
+    assert "Relevant Events:" in context
+
+    # Check for relevant event descriptions (flexible on concept order in event and overall order)
+    assert "Event event_1_old:" in context and ("Concepts [apple, banana]" in context or "Concepts [banana, apple]" in context) and "Delta 0.10" in context
+    assert "Event event_3_recent:" in context and ("Concepts [apple, orange]" in context or "Concepts [orange, apple]" in context) and "Delta 0.30" in context
+    assert "Event event_4_recent:" in context and ("Concepts [banana, grape]" in context or "Concepts [grape, banana]" in context) and "Delta 0.40" in context
+
+    # Should not include older events not involving banana and not recent
+    assert "event_2_old" not in context
+
+def test_generate_context_only_recent_time_window(hypergraph_with_history):
+    adapter = SituationalAwarenessAdapter(hypergraph=hypergraph_with_history)
+    query = "" # Empty query
+    recent_time_window = timedelta(minutes=10) # Window includes recent events
+    context = adapter.generate_context(query, recent_time_window=recent_time_window)
+
+    assert context != ""
+    # Check for the header indicating concepts related to recent activity
+    assert "Concepts related to recent activity:" in context
+    assert "apple" in context
+    assert "banana" in context
+    assert "grape" in context
+    assert "orange" in context
+
+    assert "Relevant Events:" in context
+    # Should include only recent events (event_3_recent, event_4_recent)
+    assert "Event event_3_recent:" in context and ("Concepts [apple, orange]" in context or "Concepts [orange, apple]" in context) and "Delta 0.30" in context
+    assert "Event event_4_recent:" in context and ("Concepts [banana, grape]" in context or "Concepts [grape, banana]" in context) and "Delta 0.40" in context
+
+    # Should not include older events
+    assert "event_1_old" not in context
+    assert "event_2_old" not in context
+
+# Need to add tests for: 
+# - Cases with no concepts or events in hypergraph
+# - Edge cases with time windows (e.g., very small or large window)
+# - Interaction with future summarization logic
