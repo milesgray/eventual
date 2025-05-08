@@ -63,9 +63,9 @@ class ContextInjector:
         # e.g., using specific tokens or structures to delineate context sections.
         if knowledge_context:
             # Add a separator if there is knowledge context to distinguish it from the query
-            return f"{knowledge_context}
+            return f"""{knowledge_context}
 
-User Query: {user_query}"
+User Query: {user_query}"""
         else:
             # If no knowledge context, just return the user query
             return user_query

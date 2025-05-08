@@ -389,7 +389,7 @@ data_sources: {}
             os.makedirs("eventual", exist_ok=True)
             with open(dummy_config_path, "w") as f:
                 f.write(dummy_config_content)
-        except Exception as e):
+        except Exception as e:
             print(f"Error creating dummy config file: {e}")
             # Continue execution, load_config will likely fail or use defaults
 
@@ -410,7 +410,7 @@ data_sources: {}
         try:
              with open(dummy_pipeline_config_path, "w") as f:
                 f.write(dummy_pipeline_config_content)
-        except Exception as e):
+        except Exception as e:
             print(f"Error creating dummy pipeline config file: {e}")
 
     main()
