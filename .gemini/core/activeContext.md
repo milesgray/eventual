@@ -1,1 +1,1 @@
-Current task: Implement Situational Awareness Adapter
+Current task: Implement Persistence
