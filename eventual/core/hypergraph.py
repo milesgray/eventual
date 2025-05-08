@@ -12,7 +12,7 @@ Represents a concept in the hypergraph. A concept is a node with a unique identi
 Represents an event in the hypergraph. An event is a hyperedge that connects one or more concepts and captures a change in their states.
 
 ### `Hypergraph`
-Manages all concepts and events in the hypergraph. It supports adding concepts, creating events, and querying relationships between concepts and events.
+Manages all concepts and events in the hypergraph. It supports adding concepts, creating events, and querying relationships between concepts and concepts.
 
 ## Example Usage
 
@@ -37,7 +37,8 @@ event = Event(
 hypergraph.add_event(event)
 ```
 """
-from typing import Optional, List, Set, Tuple
+import json
+from typing import Optional, List, Set, Tuple, Dict, Any
 from eventual.core.event import Event
 from eventual.core.concept import Concept
 from datetime import datetime, timedelta
@@ -47,7 +48,7 @@ class Hypergraph:
     """
     Represents a hypergraph that stores concepts and events. The hypergraph is the core data structure
     for modeling memory in an LLM-based agent. It supports adding concepts, creating events, and querying
-    relationships between concepts and events.
+    relationships between concepts and concepts.
 
     Attributes:
         concepts (dict[str, Concept]): A dictionary of concepts, keyed by concept ID.
@@ -73,7 +74,8 @@ class Hypergraph:
 
 
     def _get_lemma(self, text: str) -> str:
-        """Gets the root form (lemma) of a single word or short phrase using spaCy.
+        """
+        Gets the root form (lemma) of a single word or short phrase using spaCy.
 
         Args:
             text: The input text.
@@ -144,7 +146,7 @@ class Hypergraph:
 
         Returns:
             Concept: The existing or newly added concept.
-        """\
+        """
         # Check by ID first (primary key)
         existing_concept_by_id = self.get_concept(concept.concept_id)
         if existing_concept_by_id:
@@ -335,6 +337,56 @@ class Hypergraph:
 
         # 4. Return the set of relevant concepts and events.
         return list(relevant_concepts), list(relevant_events)
+
+    def to_dict(self) -> Dict[str, Any]:
+        """
+        Convert the Hypergraph object to a dictionary for serialization.
+        """
+        return {
+            "concepts": {concept_id: concept.to_dict() for concept_id, concept in self.concepts.items()},
+            "events": {event_id: event.to_dict() for event_id, event in self.events.items()},
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "Hypergraph":
+        """
+        Create a Hypergraph object from a dictionary.
+        """
+        hypergraph = cls()
+
+        # Load concepts first
+        concepts_data = data.get("concepts", {})
+        for concept_id, concept_data in concepts_data.items():
+            concept = Concept.from_dict(concept_data)
+            hypergraph.concepts[concept_id] = concept
+            hypergraph._concept_names[concept.name] = concept_id
+
+        # Load events and link them to concepts
+        events_data = data.get("events", {})
+        for event_id, event_data in events_data.items():
+            # Retrieve concept objects from the hypergraph based on event_data's concept_ids
+            event_concepts: Set[Concept] = set()
+            for concept_id in event_data.get("concept_ids", []):
+                concept = hypergraph.get_concept(concept_id)
+                if concept:
+                    event_concepts.add(concept)
+                else:
+                    # This indicates an issue with the saved data - a concept ID in an event
+                    # doesn't correspond to a concept in the saved concepts list.
+                    print(f"Warning: Concept ID {concept_id} for event {event_id} not found during loading. Event may be incomplete.")
+
+            # Only create the event if its concepts can be retrieved (at least partially)
+            if event_concepts or not event_data.get("concept_ids"):
+                 event = Event.from_dict(event_data, concepts=event_concepts) # Pass the set of concepts
+                 hypergraph.events[event_id] = event
+                 # Link the event back to the concepts
+                 for concept in event_concepts:
+                      concept.events.add(event)
+            else:
+                print(f"Warning: Skipping event {event_id} during loading due to no concepts found.")
+
+        return hypergraph
+
 
     def __repr__(self):
         return f"Hypergraph(concepts={len(self.concepts)}, events={len(self.events)})"

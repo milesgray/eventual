@@ -23,7 +23,7 @@ for entry in light_concept.get_history():
 ```
 
 """
-from typing import Optional
+from typing import Optional, List, Dict, Any
 from datetime import datetime
 from uuid import uuid4
 
@@ -66,7 +66,7 @@ class Concept:
         self.state = initial_state
         self.history = []  # Tracks state changes over time
         self.metadata = metadata if metadata else {}
-        self.events: set[any] = set() # set of Event objects this concept is part of; Use any to break circular dependency for now, or forward reference
+        self.events: set[Any] = set() # set of Event objects this concept is part of; Use Any to break circular dependency for now, or forward reference
 
         # Record the initial state in history
         self._record_state_change(initial_state, "Initial state")
@@ -134,6 +134,51 @@ class Concept:
             Optional[any]: The metadata value, or None if the key does not exist.
         """
         return self.metadata.get(key)
+
+    def to_dict(self) -> Dict[str, Any]:
+        """
+        Convert the Concept object to a dictionary for serialization.
+        """
+        return {
+            "concept_id": self.concept_id,
+            "name": self.name,
+            "state": self.state,
+            # Convert datetime objects to ISO format strings for serialization
+            "history": [{
+                "timestamp": entry["timestamp"].isoformat(),
+                "state": entry["state"],
+                "delta": entry["delta"],
+                "reason": entry["reason"]
+            } for entry in self.history],
+            "metadata": self.metadata,
+            "event_ids": [event.event_id for event in self.events] # Store event IDs
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "Concept":
+        """
+        Create a Concept object from a dictionary.
+        Note: Events are not reconstructed here to avoid circular dependencies. They will be linked in Hypergraph.from_dict.
+        """
+        # Create a new Concept instance, but don't record initial state again
+        concept = cls(
+            concept_id=data["concept_id"],
+            name=data["name"],
+            initial_state=data["state"], # Use the state from the dictionary as the current state
+            metadata=data.get("metadata", {})
+        )
+        # Directly set the history, converting ISO strings back to datetime objects
+        concept.history = []
+        for entry in data.get("history", []):
+             concept.history.append({
+                "timestamp": datetime.fromisoformat(entry["timestamp"]),
+                "state": entry["state"],
+                "delta": entry["delta"],
+                "reason": entry["reason"]
+            })
+
+        # event_ids are stored but not used here; they are used in Hypergraph.from_dict
+        return concept
 
     def __repr__(self):
         """

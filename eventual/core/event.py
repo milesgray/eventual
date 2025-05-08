@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Optional, TYPE_CHECKING
+from typing import Optional, TYPE_CHECKING, Dict, Any, Set
 from uuid import uuid4
 
 if TYPE_CHECKING:
@@ -53,12 +53,12 @@ class Event:
         self.delta = delta
         self.metadata = metadata if metadata is not None else {}
 
-    def to_dict(self) -> dict[str, any]:
+    def to_dict(self) -> Dict[str, Any]:
         """
-        Convert the event to a dictionary representation.
+        Convert the event to a dictionary representation for serialization.
 
         Returns:
-            dict[str, any]: A dictionary containing the event's attributes.
+            Dict[str, Any]: A dictionary containing the event's attributes.
         """
         return {
             "event_id": self.event_id,
@@ -68,35 +68,43 @@ class Event:
             "metadata": self.metadata,
         }
 
-    # from_dict would become more complex as it would need access to the Hypergraph
-    # or a way to retrieve Concept objects from IDs to reconstruct the concepts set.
-    # For now, I will comment it out as it's not directly used by the current TextProcessor flow
-    # and would require more context on how it should behave (e.g., if it needs a Hypergraph instance).
-    # @classmethod
-    # def from_dict(cls, data: dict[str, any], hypergraph: Optional['Hypergraph'] = None) -> "Event":
-    #     """
-    #     Create an Event from a dictionary representation.
-    #     Requires a hypergraph instance to retrieve concepts by their IDs.
-    #     """
-    #     retrieved_concepts = set()
-    #     if hypergraph and "concept_ids" in data:
-    #         for concept_id in data["concept_ids"]:
-    #             concept = hypergraph.get_concept(concept_id)
-    #             if concept:
-    #                 retrieved_concepts.add(concept)
-    #         if len(retrieved_concepts) != len(data["concept_ids"]):
-    #             # Handle missing concepts appropriately, e.g., raise error or log warning
-    #             pass 
-    #     if not retrieved_concepts and "concept_ids" in data and data["concept_ids"]:
-    #           raise ValueError("Could not reconstruct concepts for Event from_dict without a valid hypergraph or if concepts are missing.")
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any], concepts: Set['Concept']) -> "Event":
+        """
+        Create an Event from a dictionary representation and a set of Concept objects.
 
-    #     return cls(
-    #         concepts=retrieved_concepts,
-    #         delta=data["delta"],
-    #         timestamp=datetime.fromisoformat(data["timestamp"]),
-    #         metadata=data["metadata"],
-    #         event_id=data.get("event_id") # event_id was missing in previous version here
-    #     )
+        Args:
+            data (Dict[str, Any]): A dictionary containing the event's attributes.
+            concepts (Set[Concept]): The set of Concept objects involved in this event.
+                                      These should be the Concept objects already in the Hypergraph.
+
+        Returns:
+            Event: The created Event object.
+
+        Raises:
+            ValueError: If the provided concepts do not match the concept_ids in the data.
+        """
+        # Optional: Add a check here to ensure the provided concepts match the concept_ids in data
+        # This would require iterating through data.get("concept_ids", []) and checking if
+        # len(concepts) matches and if the IDs align.
+        # For now, assuming the caller (Hypergraph.from_dict) provides the correct concepts.
+        expected_concept_ids = set(data.get("concept_ids", []))
+        provided_concept_ids = {c.concept_id for c in concepts}
+
+        # It's important that the set of concepts provided matches the set of concept_ids from the data
+        if expected_concept_ids != provided_concept_ids:
+             # This indicates an issue in the loading process, as the provided concepts don't match the event data.
+             # Depending on desired strictness, this could be a warning or an error.
+             print(f"Warning: Concepts provided for event {data.get('event_id')} do not match concept_ids in data. Event may be reconstructed incorrectly.")
+
+        return cls(
+            concepts=concepts,
+            delta=data["delta"],
+            timestamp=datetime.fromisoformat(data["timestamp"]),
+            metadata=data.get("metadata", {}),
+            event_id=data.get("event_id")
+        )
+
 
     def __repr__(self) -> str:
         """
