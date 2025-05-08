@@ -1,1 +1,1 @@
-Current task: Implement Persistence
+Current task: Implement Long-Term memory handling
