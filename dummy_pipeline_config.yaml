@@ -3,10 +3,11 @@ languages:
   - code: en
     name: English
 
-steps: [11, 12] # Default to running the text processing and chat processing examples
+steps: [13] # Default to running the basic chat flow
 
 data_sources: {}
-llm_settings:
-  model: "gpt-4o"
-  temperature: 0.7
+
+chat_settings:
+  example_message: "The user is asking about booking a flight."
+  recent_memory_window_minutes: 10
 """

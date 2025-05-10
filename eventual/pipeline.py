@@ -20,7 +20,7 @@ languages:
   - code: de
     name: German
 
-steps: [1, 2, 3, 5, 11, 12] # Example steps including the new chat processing step (12)
+steps: [1, 2, 3, 5, 11, 12, 13] # Added new basic chat flow step (13)
 
 data_sources:
   wikipedia:
@@ -32,6 +32,13 @@ llm_settings:
   model: "gpt-4o" # LLM model for TextProcessor (if step 11 is included)
   temperature: 0.7
 # Add other LLM parameters here
+
+chat_settings:
+  # Settings for the basic chat flow (step 13)
+  example_message: "The user is asking about booking a flight."
+  retrieval_query_template: "What relevant concepts and events are related to: {query}"
+  recent_memory_window_minutes: 10
+
 ```
 
 ## Usage
@@ -42,7 +49,7 @@ Run the pipeline from the command line:
 python -m eventual.pipeline example_config.yaml
 ```
 
-If step `12` is included in the `steps` configuration, the chat processing
+If step `13` is included in the `steps` configuration, the basic chat processing
 flow example flow will be executed.
 
 ## Classes
@@ -53,7 +60,7 @@ The main class that orchestrates the pipeline steps.
 """
 import argparse
 import os
-from datetime import datetime
+from datetime import datetime, timedelta # Import timedelta
 from typing import Optional
 from dataclasses import dataclass, field
 import yaml  # For configuration
@@ -66,6 +73,8 @@ from .core.hypergraph import Hypergraph
 from .processors.text_processor import TextProcessor
 from .ingestors.hypergraph_integrator import HypergraphIntegrator
 from .ingestors.chat_ingestor import ChatIngestor
+from .adapters.situational_awareness_adapter import SituationalAwarenessAdapter
+from .context.context_injector import ContextInjector # Import ContextInjector
 from .processors.processor_output import ProcessorOutput, ExtractedEvent # Import ExtractedEvent for phase shifts
 from .data import DataExtractor, DataIntegrator # Existing imports
 
@@ -89,6 +98,7 @@ class Config:
     steps: set[int] = field(default_factory=set)
     data_sources: dict[str, Source] = field(default_factory=dict)
     llm_settings: dict = field(default_factory=dict) # Add LLM settings to config
+    chat_settings: dict = field(default_factory=dict) # Add chat settings to config
 
 # Pipeline Class
 class EventualPipeline:
@@ -97,6 +107,7 @@ class EventualPipeline:
         self.languages = config.languages
         self.data_sources = config.data_sources
         self.llm_settings = config.llm_settings # Store LLM settings
+        self.chat_settings = config.chat_settings # Store chat settings
         self.hypergraph = Hypergraph() # Initialize the Hypergraph instance
 
     def download_files(self):
@@ -185,7 +196,7 @@ class EventualPipeline:
             os.makedirs("output", exist_ok=True)
             graph.serialize(destination="output/event_relations.ttl", format="turtle")
             print("Wrote output/event_relations.ttl")
-        except Exception as e:
+         except Exception as e:
             print(f"Error writing output file: {e}")
 
     def _write_text_events(self):
@@ -196,7 +207,7 @@ class EventualPipeline:
             with open("output/text_events.txt", "w") as f:
                 f.write("Event 1: Description of event 1.") # Replace with actual text events from hypergraph if available
             print("Wrote output/text_events.txt")
-        except Exception as e:
+         except Exception as e:
             print(f"Error writing output file: {e}")
 
     def _write_links(self):
@@ -288,6 +299,57 @@ class EventualPipeline:
 
         print("Chat processing and hypergraph integration complete.")
 
+    def _run_basic_chat_flow(self):
+        """Step 13: Run a basic end-to-end chat processing flow."""
+        print("Step 13: Running basic chat processing flow...")
+
+        # Ensure necessary settings are in config
+        if 'chat_settings' not in self.config or 'example_message' not in self.config.chat_settings:
+            print("Error: 'chat_settings' or 'example_message' not found in config for basic chat flow.")
+            return
+
+        # Initialize components
+        # TextProcessor is initialized by ChatIngestor, which is initialized here.
+        ingestor = ChatIngestor(text_processor=TextProcessor(config_path="eventual/config.yaml")) # Pass config path
+        integrator = HypergraphIntegrator()
+        # SituationalAwarenessAdapter needs the hypergraph instance
+        awareness_adapter = SituationalAwarenessAdapter(hypergraph=self.hypergraph)
+        injector = ContextInjector()
+
+        # Get example chat message from config
+        chat_message = self.config.chat_settings["example_message"]
+        print(f"Processing chat message: '{chat_message}'")
+
+        # 1. Ingest the chat message
+        processor_output = ingestor.ingest(chat_message)
+        print(f"Ingested message. Extracted {len(processor_output.extracted_concepts)} concepts and {len(processor_output.extracted_events)} events.")
+
+        # 2. Integrate the extracted knowledge into the hypergraph
+        integrator.integrate(processor_output, self.hypergraph)
+        print(f"Hypergraph state after ingestion: {self.hypergraph}")
+
+        # 3. Retrieve relevant knowledge (using the message as a simple query for now)
+        retrieval_query = chat_message # Using the message as query
+        recent_window = None # No specific recent window for this basic demo
+        if 'recent_memory_window_minutes' in self.config.chat_settings:
+             recent_window = timedelta(minutes=self.config.chat_settings['recent_memory_window_minutes'])
+             print(f"Retrieving knowledge with query '{retrieval_query}' and recent window {recent_window}")
+        else:
+             print(f"Retrieving knowledge with query '{retrieval_query}'")
+
+        knowledge_context = awareness_adapter.generate_context(retrieval_query, recent_time_window=recent_window)
+
+        # 4. Inject the context for the LLM
+        full_context_for_llm = injector.inject_context(knowledge_context, chat_message)
+
+        print("
+--- Full Context for LLM ---")
+        print(full_context_for_llm)
+
+        print("Basic chat processing flow complete.")
+        # In a real scenario, this full_context_for_llm would be sent to an LLM.
+
+
     def run(self):
         """Run the pipeline based on the configured steps."""
         print(f"Running Eventual pipeline at {datetime.now().strftime(DATE_FORMAT)}")
@@ -323,9 +385,13 @@ class EventualPipeline:
         if 11 in self.config.steps:
             self._run_text_processing_flow()
 
-        # Run the new chat processing flow if configured
+        # Run the chat processing flow if configured
         if 12 in self.config.steps:
-            self._run_chat_processing_flow("The user is experiencing slow response times.")
+            self._run_chat_processing_flow("The user is experiencing slow response times.") # Example message for step 12
+
+        # Run the basic chat flow if configured
+        if 13 in self.config.steps:
+            self._run_basic_chat_flow()
 
         print("Pipeline execution complete.")
 
@@ -342,8 +408,9 @@ def load_config(config_file: str) -> Config:
         steps = set(config_data.get("steps", []))
         data_sources = {source["name"]: Source(name=source["name"], uri=source["uri"]) for source in config_data.get("data_sources", [])}
         llm_settings = config_data.get("llm_settings", {}) # Load LLM settings
+        chat_settings = config_data.get("chat_settings", {}) # Load chat settings
 
-        return Config(languages=languages, steps=steps, data_sources=data_sources, llm_settings=llm_settings)
+        return Config(languages=languages, steps=steps, data_sources=data_sources, llm_settings=llm_settings, chat_settings=chat_settings)
 
     except FileNotFoundError:
         print(f"Error: Config file not found at {config_file}")
@@ -403,9 +470,13 @@ languages:
   - code: en
     name: English
 
-steps: [11] # Default to running the text processing example
+steps: [13] # Default to running the basic chat flow
 
 data_sources: {}
+
+chat_settings:
+  example_message: "The user is asking about booking a flight."
+  recent_memory_window_minutes: 10
 """
         try:
              with open(dummy_pipeline_config_path, "w") as f:
