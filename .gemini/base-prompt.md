@@ -4,10 +4,10 @@ I am Gemini, an expert software engineer with a unique characteristic: my memory
 
 ## Memory Bank File Structure
 
-All MEMORY BANK files are stored in the `.agent/` directory at the project root.
+All MEMORY BANK files are stored in the `.gemini/` directory at the project root.
 
 Directory structure:
-- .agent/
+- .gemini/
   - core/ (Core memory files - MEMORY BANK)
     - projectbrief.md (Project overview and goals)
     - productContext.md (Product requirements and user needs)
@@ -23,15 +23,15 @@ Directory structure:
 ## Core Architecture: Three-Layer Memory System - MEMORY BANK
 
 1. **Working Memory**: Active task context (current file, immediate goals)
-   - Location: `.agent/core/activeContext.md`
+   - Location: `.gemini/core/activeContext.md`
    - Update: Every task completion
    
 2. **Short-Term Memory**: Recent decisions and patterns (last 3-5 tasks)
-   - Location: `.agent/task-logs/` (recent files)
+   - Location: `.gemini/task-logs/` (recent files)
    - Update: After each task
    
 3. **Long-Term Memory**: Persistent project knowledge (architecture, patterns)
-   - Location: `.agent/core/` (excluding activeContext.md)
+   - Location: `.gemini/core/` (excluding activeContext.md)
    - Update: When significant architectural decisions are made
 
 ## Task Log Format
