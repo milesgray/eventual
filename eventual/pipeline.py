@@ -202,7 +202,7 @@ class EventualPipeline:
             os.makedirs("output", exist_ok=True)
             graph.serialize(destination="output/event_relations.ttl", format="turtle")
             print("Wrote output/event_relations.ttl")
-         except Exception as e:
+        except Exception as e:
             print(f"Error writing output file: {e}")
 
     def _write_text_events(self):
@@ -213,29 +213,29 @@ class EventualPipeline:
             with open("output/text_events.txt", "w") as f:
                 f.write("Event 1: Description of event 1.") # Replace with actual text events from hypergraph if available
             print("Wrote output/text_events.txt")
-         except Exception as e:
+        except Exception as e:
             print(f"Error writing output file: {e}")
 
     def _write_links(self):
-         """Step 9: Write links (Example)."""
-         print(f"Step 9: Writing links...")
-         try:
+        """Step 9: Write links (Example)."""
+        print(f"Step 9: Writing links...")
+        try:
             os.makedirs("output", exist_ok=True)
             with open("output/links.txt", "w") as f:
                 f.write("http://example.org/event1 -> http://example.org/event2") # Replace with actual links from hypergraph if available
             print("Wrote output/links.txt")
-         except Exception as e:
+        except Exception as e:
             print(f"Error writing output file: {e}")
 
     def _write_comentions(self):
-         """Step 10: Write co-mentions (Example)."""
-         print(f"Step 10: Writing co-mentions...")
-         try:
+        """Step 10: Write co-mentions (Example)."""
+        print(f"Step 10: Writing co-mentions...")
+        try:
             os.makedirs("output", exist_ok=True)
             with open("output/comentions.txt", "w") as f:
                 f.write("Event 1 and Event 2 are co-mentioned.") # Replace with actual co-mentions from hypergraph if available
             print("Wrote output/comentions.txt")
-         except Exception as e:
+        except Exception as e:
             print(f"Error writing output file: {e}")
 
     def _run_text_processing_flow(self):
@@ -336,8 +336,7 @@ class EventualPipeline:
 
         # Process each message in the sequence
         for i, chat_message in enumerate(example_messages):
-            print(f"
---- Processing Message {i+1}: '{chat_message}' ---")
+            print(f"--- Processing Message {i+1}: '{chat_message}' ---")
 
             # 2. Ingest the chat message
             processor_output = ingestor.ingest(chat_message)
@@ -361,8 +360,7 @@ class EventualPipeline:
             # 5. Inject the context for the LLM
             full_context_for_llm = injector.inject_context(knowledge_context, chat_message)
 
-            print(f"
---- Full Context for LLM (Message {i+1}) ---")
+            print(f"--- Full Context for LLM (Message {i+1}) ---")
             print(full_context_for_llm)
 
             # Note: In a real chat loop, the LLM response would be generated here,
@@ -370,11 +368,9 @@ class EventualPipeline:
 
         # 6. Save the hypergraph after processing all messages
         self._persistence_manager.save_hypergraph(self.hypergraph, hypergraph_save_path)
-        print(f"
-Saved final hypergraph to {hypergraph_save_path}")
+        print(f"Saved final hypergraph to {hypergraph_save_path}")
 
-        print("
-Basic chat processing flow complete.")
+        print("Basic chat processing flow complete.")
 
 
     def run(self):

@@ -1,7 +1,7 @@
 
 ## Roadmap
 
-1.  **Setup Memory Bank:** (DONE) - Establish the `.gemini` directory and core memory files.
+1.  **PSetup Memory Bank:** (DONE) - Establish the `.gemini` directory and core memory files.
 2.  **Implement Core Workflow Patterns:** (DONE) Implement the core workflows (Initialization, Documentation, Implementation, Error Recovery, Evaluation, Self-Critique).
 3.  **Implement Initial Project Task:** (DONE) Select and implement an initial project task to test the workflow.
 4.  **Evaluate and Refine Workflow:** (DONE) Evaluate the performance of the workflow based on the initial task and refine it.
