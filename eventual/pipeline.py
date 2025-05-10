@@ -35,7 +35,10 @@ llm_settings:
 
 chat_settings:
   # Settings for the basic chat flow (step 13)
-  example_message: "The user is asking about booking a flight."
+  example_messages:
+    - "The user is asking about booking a flight."
+    - "They want to fly to London next week."
+    - "The budget is around 500 dollars."
   retrieval_query_template: "What relevant concepts and events are related to: {query}"
   recent_memory_window_minutes: 10
   hypergraph_save_path: ".gemini/chat_hypergraph.json" # Path to save/load the hypergraph
@@ -62,7 +65,7 @@ The main class that orchestrates the pipeline steps.
 import argparse
 import os
 from datetime import datetime, timedelta # Import timedelta
-from typing import Optional
+from typing import Optional, List
 from dataclasses import dataclass, field
 import yaml  # For configuration
 import requests  # For downloading files (example)
@@ -307,11 +310,12 @@ class EventualPipeline:
         print("Step 13: Running basic chat processing flow...")
 
         # Ensure necessary settings are in config
-        if 'chat_settings' not in self.config or 'example_message' not in self.config.chat_settings or 'hypergraph_save_path' not in self.config.chat_settings:
+        if 'chat_settings' not in self.config or 'example_messages' not in self.config.chat_settings or 'hypergraph_save_path' not in self.config.chat_settings:
             print("Error: Missing required settings in 'chat_settings' for basic chat flow.")
             return
 
         hypergraph_save_path = self.config.chat_settings['hypergraph_save_path']
+        example_messages = self.config.chat_settings['example_messages']
 
         # 1. Load the hypergraph
         loaded_hypergraph = self._persistence_manager.load_hypergraph(hypergraph_save_path)
@@ -330,42 +334,47 @@ class EventualPipeline:
         awareness_adapter = SituationalAwarenessAdapter(hypergraph=self.hypergraph)
         injector = ContextInjector()
 
-        # Get example chat message from config
-        chat_message = self.config.chat_settings["example_message"]
-        print(f"Processing chat message: '{chat_message}'")
+        # Process each message in the sequence
+        for i, chat_message in enumerate(example_messages):
+            print(f"
+--- Processing Message {i+1}: '{chat_message}' ---")
 
-        # 2. Ingest the chat message
-        processor_output = ingestor.ingest(chat_message)
-        print(f"Ingested message. Extracted {len(processor_output.extracted_concepts)} concepts and {len(processor_output.extracted_events)} events.")
+            # 2. Ingest the chat message
+            processor_output = ingestor.ingest(chat_message)
+            print(f"Ingested message {i+1}. Extracted {len(processor_output.extracted_concepts)} concepts and {len(processor_output.extracted_events)} events.")
 
-        # 3. Integrate the extracted knowledge into the hypergraph
-        integrator.integrate(processor_output, self.hypergraph)
-        print(f"Hypergraph state after ingestion: {self.hypergraph}")
+            # 3. Integrate the extracted knowledge into the hypergraph
+            integrator.integrate(processor_output, self.hypergraph)
+            print(f"Hypergraph state after message {i+1} ingestion: {self.hypergraph}")
 
-        # 4. Retrieve relevant knowledge (using the message as a simple query for now)
-        retrieval_query = chat_message # Using the message as query
-        recent_window = None # No specific recent window for this basic demo
-        if 'recent_memory_window_minutes' in self.config.chat_settings:
-             recent_window = timedelta(minutes=self.config.chat_settings['recent_memory_window_minutes'])
-             print(f"Retrieving knowledge with query '{retrieval_query}' and recent window {recent_window}")
-        else:
-             print(f"Retrieving knowledge with query '{retrieval_query}'")
+            # 4. Retrieve relevant knowledge (using the message as a simple query for now)
+            retrieval_query = chat_message # Using the message as query
+            recent_window = None 
+            if 'recent_memory_window_minutes' in self.config.chat_settings:
+                 recent_window = timedelta(minutes=self.config.chat_settings['recent_memory_window_minutes'])
+                 print(f"Retrieving knowledge for message {i+1} with query '{retrieval_query}' and recent window {recent_window}")
+            else:
+                 print(f"Retrieving knowledge for message {i+1} with query '{retrieval_query}'")
 
-        knowledge_context = awareness_adapter.generate_context(retrieval_query, recent_time_window=recent_window)
+            knowledge_context = awareness_adapter.generate_context(retrieval_query, recent_time_window=recent_window)
 
-        # 5. Inject the context for the LLM
-        full_context_for_llm = injector.inject_context(knowledge_context, chat_message)
+            # 5. Inject the context for the LLM
+            full_context_for_llm = injector.inject_context(knowledge_context, chat_message)
+
+            print(f"
+--- Full Context for LLM (Message {i+1}) ---")
+            print(full_context_for_llm)
+
+            # Note: In a real chat loop, the LLM response would be generated here,
+            # and potentially processed and integrated back into the hypergraph.
+
+        # 6. Save the hypergraph after processing all messages
+        self._persistence_manager.save_hypergraph(self.hypergraph, hypergraph_save_path)
+        print(f"
+Saved final hypergraph to {hypergraph_save_path}")
 
         print("
---- Full Context for LLM ---")
-        print(full_context_for_llm)
-
-        # 6. Save the hypergraph
-        self._persistence_manager.save_hypergraph(self.hypergraph, hypergraph_save_path)
-        print(f"Saved hypergraph to {hypergraph_save_path}")
-
-        print("Basic chat processing flow complete.")
-        # In a real scenario, this full_context_for_llm would be sent to an LLM.
+Basic chat processing flow complete.")
 
 
     def run(self):
@@ -493,7 +502,10 @@ steps: [13] # Default to running the basic chat flow
 data_sources: {}
 
 chat_settings:
-  example_message: "The user is asking about booking a flight."
+  example_messages:
+    - "The user is asking about booking a flight."
+    - "They want to fly to London next week."
+    - "The budget is around 500 dollars."
   recent_memory_window_minutes: 10
   hypergraph_save_path: ".gemini/chat_hypergraph.json"
 """

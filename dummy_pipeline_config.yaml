@@ -8,7 +8,10 @@ steps: [13] # Default to running the basic chat flow
 data_sources: {}
 
 chat_settings:
-  example_message: "The user is asking about booking a flight."
+  example_messages:
+    - "The user is asking about booking a flight."
+    - "They want to fly to London next week."
+    - "The budget is around 500 dollars."
   recent_memory_window_minutes: 10
   hypergraph_save_path: ".gemini/chat_hypergraph.json"
 """
