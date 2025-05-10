@@ -38,6 +38,7 @@ chat_settings:
   example_message: "The user is asking about booking a flight."
   retrieval_query_template: "What relevant concepts and events are related to: {query}"
   recent_memory_window_minutes: 10
+  hypergraph_save_path: ".gemini/chat_hypergraph.json" # Path to save/load the hypergraph
 
 ```
 
@@ -75,6 +76,7 @@ from .ingestors.hypergraph_integrator import HypergraphIntegrator
 from .ingestors.chat_ingestor import ChatIngestor
 from .adapters.situational_awareness_adapter import SituationalAwarenessAdapter
 from .context.context_injector import ContextInjector # Import ContextInjector
+from .persistence.hypergraph_persistence import HypergraphPersistence # Import HypergraphPersistence
 from .processors.processor_output import ProcessorOutput, ExtractedEvent # Import ExtractedEvent for phase shifts
 from .data import DataExtractor, DataIntegrator # Existing imports
 
@@ -108,7 +110,8 @@ class EventualPipeline:
         self.data_sources = config.data_sources
         self.llm_settings = config.llm_settings # Store LLM settings
         self.chat_settings = config.chat_settings # Store chat settings
-        self.hypergraph = Hypergraph() # Initialize the Hypergraph instance
+        self.hypergraph = Hypergraph() # Initialize the Hypergraph instance (will be loaded from file if exists)
+        self._persistence_manager = HypergraphPersistence() # Initialize persistence manager
 
     def download_files(self):
         """Step 1: Download raw data files (Example)."""
@@ -123,7 +126,7 @@ class EventualPipeline:
                 import os
                 os.makedirs("data", exist_ok=True)
                 with open(f"data/{source.name}.raw", "wb") as f:
-                    f.write(response.content)
+                    self.write_output("data/" + source.name + ".raw", response.content.decode('utf-8')) # Assuming text content for example
                 print(f"Successfully downloaded {source.name}.")
             except requests.exceptions.RequestException as e:
                 print(f"Error downloading {source.name}: {e}")
@@ -304,11 +307,22 @@ class EventualPipeline:
         print("Step 13: Running basic chat processing flow...")
 
         # Ensure necessary settings are in config
-        if 'chat_settings' not in self.config or 'example_message' not in self.config.chat_settings:
-            print("Error: 'chat_settings' or 'example_message' not found in config for basic chat flow.")
+        if 'chat_settings' not in self.config or 'example_message' not in self.config.chat_settings or 'hypergraph_save_path' not in self.config.chat_settings:
+            print("Error: Missing required settings in 'chat_settings' for basic chat flow.")
             return
 
-        # Initialize components
+        hypergraph_save_path = self.config.chat_settings['hypergraph_save_path']
+
+        # 1. Load the hypergraph
+        loaded_hypergraph = self._persistence_manager.load_hypergraph(hypergraph_save_path)
+        if loaded_hypergraph:
+            self.hypergraph = loaded_hypergraph
+            print(f"Loaded hypergraph from {hypergraph_save_path}")
+        else:
+            print("No existing hypergraph found, using a new one.")
+            self.hypergraph = Hypergraph() # Ensure self.hypergraph is a Hypergraph instance
+
+        # Initialize components that depend on the hypergraph
         # TextProcessor is initialized by ChatIngestor, which is initialized here.
         ingestor = ChatIngestor(text_processor=TextProcessor(config_path="eventual/config.yaml")) # Pass config path
         integrator = HypergraphIntegrator()
@@ -320,15 +334,15 @@ class EventualPipeline:
         chat_message = self.config.chat_settings["example_message"]
         print(f"Processing chat message: '{chat_message}'")
 
-        # 1. Ingest the chat message
+        # 2. Ingest the chat message
         processor_output = ingestor.ingest(chat_message)
         print(f"Ingested message. Extracted {len(processor_output.extracted_concepts)} concepts and {len(processor_output.extracted_events)} events.")
 
-        # 2. Integrate the extracted knowledge into the hypergraph
+        # 3. Integrate the extracted knowledge into the hypergraph
         integrator.integrate(processor_output, self.hypergraph)
         print(f"Hypergraph state after ingestion: {self.hypergraph}")
 
-        # 3. Retrieve relevant knowledge (using the message as a simple query for now)
+        # 4. Retrieve relevant knowledge (using the message as a simple query for now)
         retrieval_query = chat_message # Using the message as query
         recent_window = None # No specific recent window for this basic demo
         if 'recent_memory_window_minutes' in self.config.chat_settings:
@@ -339,12 +353,16 @@ class EventualPipeline:
 
         knowledge_context = awareness_adapter.generate_context(retrieval_query, recent_time_window=recent_window)
 
-        # 4. Inject the context for the LLM
+        # 5. Inject the context for the LLM
         full_context_for_llm = injector.inject_context(knowledge_context, chat_message)
 
         print("
 --- Full Context for LLM ---")
         print(full_context_for_llm)
+
+        # 6. Save the hypergraph
+        self._persistence_manager.save_hypergraph(self.hypergraph, hypergraph_save_path)
+        print(f"Saved hypergraph to {hypergraph_save_path}")
 
         print("Basic chat processing flow complete.")
         # In a real scenario, this full_context_for_llm would be sent to an LLM.
@@ -477,6 +495,7 @@ data_sources: {}
 chat_settings:
   example_message: "The user is asking about booking a flight."
   recent_memory_window_minutes: 10
+  hypergraph_save_path: ".gemini/chat_hypergraph.json"
 """
         try:
              with open(dummy_pipeline_config_path, "w") as f:

@@ -10,4 +10,5 @@ data_sources: {}
 chat_settings:
   example_message: "The user is asking about booking a flight."
   recent_memory_window_minutes: 10
+  hypergraph_save_path: ".gemini/chat_hypergraph.json"
 """
