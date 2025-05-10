@@ -44,33 +44,33 @@
 
 ### 5. Evaluation Workflow
 
-**Description**: Measures performance against standards and identifies areas for optimization based on quantifiable criteria.
+**Description**: Measures performance against standards.
 
 **Steps**:
-1.  Define the evaluation criteria based on task goals and performance standards.
-2.  Evaluate the performance of the task against the defined criteria.
-3.  Assign a numerical score based on the performance standards.
-4.  Perform a gap analysis to identify discrepancies between expected and actual performance.
-5.  Document the evaluation, score, and identified gaps in the task log.
+1.  Define the evaluation criteria.
+2.  Evaluate the performance of the task.
+3.  Assign a score based on the performance standards.
+4.  Identify strengths and areas for improvement.
+5.  Document the evaluation in the task log.
 
 ### 6. Self-Critique Workflow
 
-**Description**: Reviews evaluations, identifies root causes of performance gaps, and devises iterative improvements based on structured analysis.
+**Description**: Reviews and improves implementation based on evaluation results through structured iteration.
 
 **Steps**:
-1.  Review the task log, focusing on the evaluation and identified gaps.
-2.  Analyze the root causes of performance shortfalls using a structured approach (e.g., 5 Whys, fault tree analysis - although these are advanced and not strictly implemented here, the *principle* of root cause analysis is applied).
-3.  Develop a plan for iterative optimization, focusing on addressing the root causes of the most significant performance gaps.
-4.  Implement the planned improvements.
-5.  Test the improvements to verify their effectiveness.
-6.  Document the self-critique process, including root cause analysis, improvement plan, and test results, in the task log.
+1.  Review the task log and the performance evaluation.
+2.  Perform Gap Analysis: Identify specific areas where performance fell short of standards or where improvements are needed.
+3.  Develop an Iterative Optimization Plan: Outline concrete steps to address the identified gaps and improve the implementation.
+4.  Implement the improvements.
+5.  Test the improvements.
+6.  Document the improvements and re-evaluate performance in the task log.
 
-## Structured Decision Optimization Principles (Applied in Evaluation and Self-Critique)
+## Structured Decision Optimization Principles
 
-1.  **Objective Measurement**: Every decision is evaluated against quantifiable criteria (Performance Standards).
-2.  **Gap Analysis**: Performance shortfalls are systematically identified and addressed (Evaluation Workflow Step 4).
-3.  **Iterative Optimization**: Solutions are refined until they meet or exceed target scores (Self-Critique Workflow Steps 3-5).
-4.  **Pattern Recognition**: Successful approaches are documented for future application (Implicit in comprehensive task logs and updated memory files).
-5.  **Knowledge Persistence**: All evaluations and optimizations are stored in the Memory Bank (Documentation Workflow).
+The Evaluation and Self-Critique Workflows drive Structured Decision Optimization, which follows these principles:
 
-This process ensures decisions are made based on evidence rather than intuition and solutions continuously improve through structured iteration.
+1.  **Objective Measurement**: Every decision and implementation is evaluated against quantifiable criteria (Performance Standards).
+2.  **Gap Analysis**: Performance shortfalls and areas for improvement are systematically identified based on evaluation results.
+3.  **Iterative Optimization**: Solutions are refined through a structured iterative process until they meet or exceed target scores or requirements.
+4.  **Pattern Recognition**: Successful approaches, solutions, and optimization strategies are identified and documented for future application.
+5.  **Knowledge Persistence**: All evaluations, identified gaps, optimization plans, and outcomes are stored in the Memory Bank to ensure continuous learning and improvement.
