@@ -8,6 +8,119 @@ class TestHypergraph(unittest.TestCase):
         concept = Concept(concept_id="light_1", name="light", initial_state=1.0)
         hypergraph.add_concept(concept)
         self.assertIn("light_1", hypergraph.concepts)
+        # Verify name lookup also works after adding
+        retrieved_concept = hypergraph.get_concept_by_name("light")
+        self.assertIsNotNone(retrieved_concept)
+        self.assertEqual(retrieved_concept.concept_id, "light_1")
+
+    def test_get_concept_by_id_found(self):
+        hypergraph = Hypergraph()
+        concept = Concept(concept_id="concept_123", name="test concept", initial_state=5.0)
+        hypergraph.add_concept(concept)
+        retrieved_concept = hypergraph.get_concept(concept.concept_id)
+        self.assertIsNotNone(retrieved_concept)
+        self.assertEqual(retrieved_concept.concept_id, concept.concept_id)
+        self.assertEqual(retrieved_concept.name, concept.name)
+
+    def test_get_concept_by_id_not_found(self):
+        hypergraph = Hypergraph()
+        retrieved_concept = hypergraph.get_concept("non_existent_id")
+        self.assertIsNone(retrieved_concept)
+
+    def test_get_concept_by_name_found_exact_match(self):
+        hypergraph = Hypergraph()
+        concept = Concept(concept_id="concept_abc", name="Exact Match", initial_state=2.0)
+        hypergraph.add_concept(concept)
+        retrieved_concept = hypergraph.get_concept_by_name("Exact Match")
+        self.assertIsNotNone(retrieved_concept)
+        self.assertEqual(retrieved_concept.concept_id, concept.concept_id)
+
+    def test_get_concept_by_name_found_case_insensitive(self):
+        hypergraph = Hypergraph()
+        concept = Concept(concept_id="concept_def", name="CaseSensitive", initial_state=3.0)
+        hypergraph.add_concept(concept)
+        retrieved_concept = hypergraph.get_concept_by_name("casesensitive") # Test lower case
+        self.assertIsNotNone(retrieved_concept)
+        self.assertEqual(retrieved_concept.concept_id, concept.concept_id)
+        retrieved_concept = hypergraph.get_concept_by_name("CASESENSITIVE") # Test upper case
+        self.assertIsNotNone(retrieved_concept)
+        self.assertEqual(retrieved_concept.concept_id, concept.concept_id)
+
+    def test_get_concept_by_name_found_lemmatized(self):
+        hypergraph = Hypergraph()
+        # Add concept with base lemma name
+        concept_run = Concept(concept_id="concept_run_1", name="run", initial_state=1.0)
+        hypergraph.add_concept(concept_run)
+
+        # Search using different forms of the word
+        retrieved_concept_running = hypergraph.get_concept_by_name("running")
+        self.assertIsNotNone(retrieved_concept_running)
+        self.assertEqual(retrieved_concept_running.concept_id, concept_run.concept_id)
+
+        retrieved_concept_ran = hypergraph.get_concept_by_name("ran")
+        self.assertIsNotNone(retrieved_concept_ran)
+        self.assertEqual(retrieved_concept_ran.concept_id, concept_run.concept_id)
+
+    def test_get_concept_by_name_not_found(self):
+        hypergraph = Hypergraph()
+        concept = Concept(concept_id="concept_ghi", name="Another Concept", initial_state=4.0)
+        hypergraph.add_concept(concept)
+        retrieved_concept = hypergraph.get_concept_by_name("non_existent_name")
+        self.assertIsNone(retrieved_concept)
+        retrieved_concept = hypergraph.get_concept_by_name("running") # Test a lemmatized form that doesn't exist
+        self.assertIsNone(retrieved_concept)
+
+    def test_add_concept_if_not_exists_new_concept(self):
+        hypergraph = Hypergraph()
+        concept = Concept(concept_id="new_concept_1", name="new idea", initial_state=1.0)
+        returned_concept = hypergraph.add_concept_if_not_exists(concept)
+        self.assertEqual(len(hypergraph.concepts), 1)
+        self.assertIn("new_concept_1", hypergraph.concepts)
+        self.assertEqual(returned_concept.concept_id, "new_concept_1")
+        # Verify the returned concept is the instance stored in the hypergraph
+        self.assertIs(returned_concept, hypergraph.get_concept("new_concept_1"))
+
+    def test_add_concept_if_not_exists_existing_id(self):
+        hypergraph = Hypergraph()
+        existing_concept = Concept(concept_id="existing_id_1", name="original name", initial_state=1.0)
+        hypergraph.add_concept(existing_concept)
+
+        # Attempt to add a concept with the same ID but different name/state
+        new_concept_with_same_id = Concept(concept_id="existing_id_1", name="different name", initial_state=2.0)
+        returned_concept = hypergraph.add_concept_if_not_exists(new_concept_with_same_id)
+
+        self.assertEqual(len(hypergraph.concepts), 1) # Should not add a new concept
+        self.assertIs(returned_concept, existing_concept) # Should return the original concept instance
+        self.assertEqual(returned_concept.name, "original name") # Ensure original data is kept
+        self.assertEqual(returned_concept.state, 1.0)
+
+    def test_add_concept_if_not_exists_existing_name(self):
+        hypergraph = Hypergraph()
+        existing_concept = Concept(concept_id="original_id_1", name="Existing Name", initial_state=1.0)
+        hypergraph.add_concept(existing_concept)
+
+        # Attempt to add a concept with a different ID but the same name (lemmatized, case-insensitive)
+        new_concept_with_same_name = Concept(concept_id="different_id_1", name="existing name", initial_state=2.0)
+        returned_concept = hypergraph.add_concept_if_not_exists(new_concept_with_same_name)
+
+        self.assertEqual(len(hypergraph.concepts), 1) # Should not add a new concept
+        self.assertIs(returned_concept, existing_concept) # Should return the original concept instance
+        self.assertEqual(returned_concept.concept_id, "original_id_1") # Ensure original data is kept
+        self.assertEqual(returned_concept.name, "Existing Name")
+        self.assertEqual(returned_concept.state, 1.0)
+
+    def test_add_concept_if_not_exists_existing_id_and_name(self):
+        hypergraph = Hypergraph()
+        existing_concept = Concept(concept_id="existing_id_2", name="Existing Concept", initial_state=1.0)
+        hypergraph.add_concept(existing_concept)
+
+        # Attempt to add a concept with the same ID and name
+        same_concept = Concept(concept_id="existing_id_2", name="Existing Concept", initial_state=1.0)
+        returned_concept = hypergraph.add_concept_if_not_exists(same_concept)
+
+        self.assertEqual(len(hypergraph.concepts), 1) # Should not add a new concept
+        self.assertIs(returned_concept, existing_concept) # Should return the original concept instance
+
 
     def test_add_event(self):
         hypergraph = Hypergraph()
@@ -21,6 +134,10 @@ class TestHypergraph(unittest.TestCase):
         )
         hypergraph.add_event(event)
         self.assertEqual(len(hypergraph.events), 1)
+        # Verify the event is linked back to the concept instance in the hypergraph
+        retrieved_concept = hypergraph.get_concept("light_1")
+        self.assertIsNotNone(retrieved_concept)
+        self.assertIn(event, retrieved_concept.events)
 
     def test_find_related_concepts(self):
         hypergraph = Hypergraph()
@@ -37,6 +154,7 @@ class TestHypergraph(unittest.TestCase):
         hypergraph.add_event(event)
         related_concepts = hypergraph.find_related_concepts("light_1")
         self.assertIn(darkness_concept, related_concepts)
+        self.assertNotIn(light_concept, related_concepts) # Ensure the original concept is not included
 
     def test_retrieve_knowledge_matching_concepts(self):
         hypergraph = Hypergraph()

@@ -125,7 +125,6 @@ class Hypergraph:
         """
         return self.concepts.get(concept_id)
 
-    # Renamed get_concept_by_name for clarity and to match plan, but functionality is similar
     def get_concept_by_name(self, name: str) -> Optional[Concept]:
         """
         Retrieve a concept by its name (case-insensitive, lemmatized match).
