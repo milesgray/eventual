@@ -1,17 +1,10 @@
 ## Working Memory
 
-- **Current Focus:** Implementing Phase 7 of the refactoring roadmap: Comprehensive Testing and Documentation.
-- **Completed Tasks:**
-    - Phase 1, Task 1.1: Enhance `Hypergraph` Lookup
-    - Phase 1, Task 1.2: Implement `add_concept_if_not_exists` in `Hypergraph`
-    - Phase 1, Task 1.3: Review `add_event` Method in `Hypergraph`
-    - Phase 2, Task 2.1: Define Processor Output Structure
-    - Phase 2, Task 2.2: Refactor `TextProcessor` Output
-    - Phase 3, Task 3.1: Create `Integrator` Base Class/Interface
-    - Phase 3, Task 3.2: Implement `HypergraphIntegrator`
-    - Phase 4, Task 4.1: Refactor `Pipeline` Orchestration
-    - Phase 5, Task 5.1: Review and Update Other Core/Data Components (Completed)
-    - Phase 5, Task 5.2: Review and Update Stream Components (Completed)
-- **Current Task:** Phase 7, Task 7.1: Full System Integration Testing.
-- **Completed Subtasks:** Defined and planned integration tests, Created `test_text_processing.py` with initial test cases, Added comprehensive test cases for `TextProcessor` output (TF-IDF and phase shifts), Implemented test case for `TextProcessor.extract_concepts_and_graph_llm` by mocking LLM calls, Ran `tests/test_text_processing.py` successfully.
-- **Next Immediate Task:** Run `tests/test_hypergraph_integration.py` to verify the integration of processor output with the Hypergraph.
+- **Current Focus:** Beginning the refactoring process based on the Engineered Meta-Cognitive Workflow Architecture, focusing on Phase 1: Strengthen the Core (Hypergraph).
+- **Current Task:** Phase 1, Task 1.1: Enhance `Hypergraph` Lookup.
+- **Immediate Goal:** Implement efficient lookup methods (`get_concept_by_id`, `get_concept_by_name`) in `eventual/core/hypergraph.py` and write initial unit tests.
+- **Next Tasks (Phase 1):**
+    - Task 1.2: Implement `add_concept_if_not_exists`.
+    - Task 1.3: Refine `add_event` Method.
+
+- **Refactoring Roadmap Progress:** Currently at the start of Phase 1.
