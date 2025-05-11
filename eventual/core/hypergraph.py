@@ -53,7 +53,7 @@ class Hypergraph:
     Attributes:
         concepts (dict[str, Concept]): A dictionary of concepts, keyed by concept ID.
         events (dict[str, Event]): A dictionary of events, keyed by event ID.
-        _concept_names (dict[str, str]): Internal dictionary mapping concept names to concept IDs for efficient lookup.
+        _concept_names (dict[str, str]): Internal dictionary mapping lemmatized concept names to concept IDs for efficient lookup.
         _nlp (spacy.Language): spaCy language model for query processing.
     """
 
@@ -63,6 +63,7 @@ class Hypergraph:
         """
         self.concepts: dict[str, Concept] = {}
         self.events: dict[str, Event] = {}
+        # Use lemmatized lower-case names for efficient lookup
         self._concept_names: dict[str, str] = {}
         try:
             self._nlp = spacy.load("en_core_web_sm")
@@ -98,16 +99,19 @@ class Hypergraph:
             concept (Concept): The concept to add.
 
         Raises:
-            ValueError: If a concept with the same ID or name already exists.
+            ValueError: If a concept with the same ID or lemmatized name already exists.
         """
         if concept.concept_id in self.concepts:
             raise ValueError(f"Concept with ID {concept.concept_id} already exists.")
-        # Assuming concept names should also be unique. If not, this check should be removed
-        if concept.name in self._concept_names:
-             raise ValueError(f"Concept with name '{concept.name}' already exists.")
+
+        # Use lemmatized name for uniqueness check and lookup
+        lemmatized_name = self._get_lemma(concept.name)
+        if lemmatized_name in self._concept_names:
+             raise ValueError(f"Concept with lemmatized name '{lemmatized_name}' (original: '{concept.name}') already exists.")
 
         self.concepts[concept.concept_id] = concept
-        self._concept_names[concept.name] = concept.concept_id
+        # Store the mapping from lemmatized name to concept ID
+        self._concept_names[lemmatized_name] = concept.concept_id
 
     def get_concept(self, concept_id: str) -> Optional[Concept]:
         """
@@ -121,9 +125,10 @@ class Hypergraph:
         """
         return self.concepts.get(concept_id)
 
+    # Renamed get_concept_by_name for clarity and to match plan, but functionality is similar
     def get_concept_by_name(self, name: str) -> Optional[Concept]:
         """
-        Retrieve a concept by its name.
+        Retrieve a concept by its name (case-insensitive, lemmatized match).
 
         Args:
             name (str): The name of the concept to retrieve.
@@ -131,14 +136,15 @@ class Hypergraph:
         Returns:
             Optional[Concept]: The concept, or None if not found.
         """
-        concept_id = self._concept_names.get(name)
+        lemmatized_name = self._get_lemma(name)
+        concept_id = self._concept_names.get(lemmatized_name)
         if concept_id:
             return self.get_concept(concept_id)
         return None
 
     def add_concept_if_not_exists(self, concept: Concept) -> Concept:
         """
-        Adds a concept if it doesn't exist (based on ID or name).
+        Adds a concept if it doesn't exist (based on ID or lemmatized name).
         Returns the existing concept if found, otherwise returns the newly added concept.
 
         Args:
@@ -152,19 +158,16 @@ class Hypergraph:
         if existing_concept_by_id:
             return existing_concept_by_id
 
-        # Then check by name
-        existing_concept_by_name = self.get_concept_by_name(concept.name)
-        if existing_concept_by_name:
-            # Assuming name uniqueness is enforced by add_concept
-            # If we reach here, it means the ID was different but the name is the same.
-            # Based on the current add_concept, this scenario implies a ValueError would have been raised if add_concept were called directly.
-            # For add_concept_if_not_exists, we should probably return the existing one by name.
-            return existing_concept_by_name
+        # Then check by lemmatized name
+        lemmatized_name = self._get_lemma(concept.name)
+        existing_concept_id_by_name = self._concept_names.get(lemmatized_name)
+        if existing_concept_id_by_name:
+             # Retrieve the existing concept using the found ID
+             return self.get_concept(existing_concept_id_by_name)
 
-        # If neither exists, add the new concept
+        # If neither exists, add the new concept using the standard method which handles name uniqueness based on lemma
         self.add_concept(concept)
-        return concept
-
+        return self.get_concept(concept.concept_id) # Return the instance now stored in the hypergraph
 
     def add_event(self, event: Event):
         """
@@ -178,19 +181,27 @@ class Hypergraph:
         """
         if event.event_id in self.events:
             raise ValueError(f"Event with ID {event.event_id} already exists.")
-        self.events[event.event_id] = event
-        for concept in event.concepts:
-            # Ensure the concept is in the hypergraph before linking the event
-            # Use get_concept to retrieve the instance stored in the hypergraph
-            stored_concept = self.get_concept(concept.concept_id)
+
+        # Ensure event concepts reference the instances stored in the hypergraph
+        hypergraph_concepts: Set[Concept] = set()
+        for concept_in_event in event.concepts:
+            stored_concept = self.get_concept(concept_in_event.concept_id)
             if stored_concept:
-                 stored_concept.events.add(event) # Link event to concept within the hypergraph's stored concepts
+                 hypergraph_concepts.add(stored_concept)
             else:
                  # This indicates an event is being added with a concept not present in the hypergraph.
                  # Depending on desired behavior, this might be an error or a warning.
                  # Current add_concept requires concepts to be added first.
-                 print(f"Warning: Adding event {event.event_id} with concept {concept.concept_id} not found in hypergraph. Event not linked to this concept.")
+                 print(f"Warning: Adding event {event.event_id} with concept {concept_in_event.concept_id} not found in hypergraph. Event not linked to this concept.")
 
+        # Update the event object's concepts to reference the stored instances
+        event.concepts = hypergraph_concepts
+
+        self.events[event.event_id] = event
+
+        # Link event to concept within the hypergraph's stored concepts
+        for concept in event.concepts:
+             concept.events.add(event)
 
     def get_event(self, event_id: str) -> Optional[Event]:
         """
@@ -282,9 +293,12 @@ class Hypergraph:
         """
         keyword_lower = keyword.lower()
         matching_concepts = []
-        for concept in self.concepts.values():
-            if keyword_lower in concept.name.lower():
-                matching_concepts.append(concept)
+        # Iterate through concept names lookup for efficiency
+        for lemmatized_name, concept_id in self._concept_names.items():
+             if keyword_lower in lemmatized_name:
+                  concept = self.get_concept(concept_id)
+                  if concept:
+                       matching_concepts.append(concept)
         return matching_concepts
 
     def get_recent_events(self, time_window: timedelta) -> List[Event]:
@@ -323,8 +337,9 @@ class Hypergraph:
 
         # 2. Find concepts in the hypergraph whose names (lemmas) match the lemmatized terms from the query.
         relevant_concepts: Set[Concept] = set()
-        for concept in self.concepts.values():
-            if concept.name.lower() in query_lemmas:
+        for lemma in query_lemmas:
+            concept = self.get_concept_by_name(lemma) # Use efficient name lookup
+            if concept:
                 relevant_concepts.add(concept)
 
         # 3. Collect all events that involve these matched concepts.
@@ -359,7 +374,9 @@ class Hypergraph:
         for concept_id, concept_data in concepts_data.items():
             concept = Concept.from_dict(concept_data)
             hypergraph.concepts[concept_id] = concept
-            hypergraph._concept_names[concept.name] = concept_id
+            # Ensure lemmatized name is stored during loading
+            lemmatized_name = hypergraph._get_lemma(concept.name)
+            hypergraph._concept_names[lemmatized_name] = concept_id
 
         # Load events and link them to concepts
         events_data = data.get("events", {})
