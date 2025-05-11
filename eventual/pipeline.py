@@ -310,7 +310,8 @@ class EventualPipeline:
         print("Step 13: Running basic chat processing flow...")
 
         # Ensure necessary settings are in config
-        if 'chat_settings' not in self.config or 'example_messages' not in self.config.chat_settings or 'hypergraph_save_path' not in self.config.chat_settings:
+        # Corrected check to directly access chat_settings dictionary
+        if 'example_messages' not in self.config.chat_settings or 'hypergraph_save_path' not in self.config.chat_settings:
             print("Error: Missing required settings in 'chat_settings' for basic chat flow.")
             return
 
@@ -503,7 +504,7 @@ chat_settings:
     - "They want to fly to London next week."
     - "The budget is around 500 dollars."
   recent_memory_window_minutes: 10
-  hypergraph_save_path: ".gemini/chat_hypergraph.json"
+  hypergraph_save_path: "./chat_hypergraph.json"
 """
         try:
              with open(dummy_pipeline_config_path, "w") as f:

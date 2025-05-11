@@ -43,7 +43,7 @@ class HypergraphIntegrator(BaseIntegrator):
                 concept_id=ext_concept.concept_id if ext_concept.concept_id else f"concept_{uuid4().hex}",
                 name=ext_concept.name,
                 initial_state=ext_concept.initial_state, # Use initial_state from extracted data
-                properties=ext_concept.properties # Include any extracted properties
+                metadata=ext_concept.properties # Use metadata field for properties
             )
             try:
                 # add_concept_if_not_exists returns the existing or newly added concept

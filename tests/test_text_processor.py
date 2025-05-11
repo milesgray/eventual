@@ -130,11 +130,11 @@ def test_extract_concepts_and_graph_llm_populates_hypergraph(text_processor, moc
 
     # Check event metadata and delta for LLM events
     for event in extracted_events:
-         assert event.event_type == 'relationship'
-         assert event.delta == 0.0 # LLM relationship events have delta 0
-         assert "source" in event.properties
-         assert event.properties.get("source") == "LLM_concept_extraction"
-         assert "relationship_type" in event.properties # Could be more specific if LLM provides it
+        assert event.event_type == 'relationship'
+        assert event.delta == 0.0 # LLM relationship events have delta 0
+        assert "source" in event.properties
+        assert event.properties.get("source") == "LLM_concept_extraction"
+        assert "relationship_type" in event.properties # Could be more specific if LLM provides it
 
 
 def test_detect_phase_shifts(text_processor):
@@ -179,18 +179,18 @@ def test_detect_phase_shifts_adds_events_to_hypergraph(text_processor):
 
     # Check properties and delta for the extracted phase shift events
     for event in phase_shift_events:
-         assert event.event_type == 'phase_shift'
-         assert event.delta != 0.0
-         assert "source" in event.properties
-         assert event.properties.get("source") == "TFIDF_phase_shift_detection"
-         assert "delta_magnitude" in event.properties
-         assert "text1_score" in event.properties
-         assert "text2_score" in event.properties
-         assert len(event.concept_identifiers) == 1
-         # Safely access concept_lemma property and compare
-         concept_lemma_from_properties = event.properties.get("concept_lemma")
-         assert concept_lemma_from_properties is not None, "concept_lemma property missing in phase shift event."
-         assert concept_lemma_from_properties.lower() == event.concept_identifiers[0].lower()
+        assert event.event_type == 'phase_shift'
+        assert event.delta != 0.0
+        assert "source" in event.properties
+        assert event.properties.get("source") == "TFIDF_phase_shift_detection"
+        assert "delta_magnitude" in event.properties
+        assert "text1_score" in event.properties
+        assert "text2_score" in event.properties
+        assert len(event.concept_identifiers) == 1
+        # Safely access concept_lemma property and compare
+        concept_lemma_from_properties = event.properties.get("concept_lemma")
+        assert concept_lemma_from_properties is not None, "concept_lemma property missing in phase shift event."
+        assert concept_lemma_from_properties.lower() == event.concept_identifiers[0].lower()
 
 def test_update_concept_map(text_processor):
     processor = TextProcessor()

@@ -13,7 +13,7 @@ class Event:
     or it can represent a relationship between multiple concepts.
     Events are the building blocks of the hypergraph and are used to model memory in an
     LLM-based agent. Each event has a unique identifier, a timestamp, a set of concepts
-    it involves, and a delta (which might be 0 for relational events).
+    it involves, a delta (which might be 0 for relational events), and a type.
 
     Attributes:
         event_id (str): A unique identifier for the event.
@@ -22,6 +22,7 @@ class Event:
         delta (float): The magnitude of the change (e.g., in a concept's state if the event is about a single concept's change,
                        or 0.0 for purely relational events between multiple concepts).
         metadata (dict[str, any]): Additional metadata associated with the event.
+        event_type (str): The type of the event (e.g., 'state_change', 'relationship').
     """
 
     def __init__(
@@ -31,6 +32,7 @@ class Event:
         timestamp: Optional[datetime] = None,
         metadata: Optional[dict[str, any]] = None,
         event_id: Optional[str] = None, # Made event_id optional, will generate if None
+        event_type: str = 'state_change' # Added event_type with a default value
     ):
         """
         Initialize an Event.
@@ -43,6 +45,7 @@ class Event:
             metadata (Optional[dict[str, any]]): Additional metadata associated with the event.
                 Defaults to an empty dictionary if not provided.
             event_id (Optional[str]): A unique identifier for the event. If None, a UUID is generated.
+            event_type (str): The type of the event (e.g., 'state_change', 'relationship'). Defaults to 'state_change'.
         """
         if not concepts:
             raise ValueError("An event must involve at least one concept.")
@@ -52,6 +55,7 @@ class Event:
         self.concepts = concepts
         self.delta = delta
         self.metadata = metadata if metadata is not None else {}
+        self.event_type = event_type # Assign the event type
 
     def to_dict(self) -> Dict[str, Any]:
         """
@@ -66,6 +70,7 @@ class Event:
             "concept_ids": [concept.concept_id for concept in self.concepts], # Store concept IDs
             "delta": self.delta,
             "metadata": self.metadata,
+            "event_type": self.event_type, # Include event_type in dict
         }
 
     @classmethod
@@ -102,7 +107,8 @@ class Event:
             delta=data["delta"],
             timestamp=datetime.fromisoformat(data["timestamp"]),
             metadata=data.get("metadata", {}),
-            event_id=data.get("event_id")
+            event_id=data.get("event_id"),
+            event_type=data.get("event_type", 'state_change') # Include event_type from dict, provide default
         )
 
 
@@ -116,7 +122,7 @@ class Event:
         concept_names = ", ".join(sorted([c.name for c in self.concepts]))
         return (
             f"Event(event_id={self.event_id}, timestamp={self.timestamp}, "
-            f"concepts=[{concept_names}], delta={self.delta}, metadata={self.metadata})"
+            f"concepts=[{concept_names}], delta={self.delta}, metadata={self.metadata}, event_type={self.event_type})" # Include event_type in repr
         )
 
     def __eq__(self, other: any) -> bool:

@@ -77,11 +77,8 @@ class ChatIngestor:
             print("Warning: Empty chat message received.")
             return ProcessorOutput() # Return empty output for empty message
 
-        # Use the TextProcessor to extract concepts (and potentially events if using LLM method later)
-        # For now, we'll assume the basic TF-IDF concept extraction is the default.
-        # If LLM-based graph extraction or phase shift detection is needed from chat messages,
-        # this ingest method might need to be more sophisticated or offer more options.
-        processor_output = self._text_processor.extract_concepts(message)
-        
-        print(f"ChatIngestor processed message. Extracted {len(processor_output.extracted_concepts)} concepts.")
+        # Use the TextProcessor to extract concepts and relationships using the LLM method
+        processor_output = self._text_processor.extract_concepts_and_graph_llm(message)
+
+        print(f"ChatIngestor processed message. Extracted {len(processor_output.extracted_concepts)} concepts and {len(processor_output.extracted_events)} events.")
         return processor_output
