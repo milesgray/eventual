@@ -76,5 +76,5 @@ This roadmap outlines the steps to transition from the current architecture to t
 *   **Task 7.2: Performance Profiling:**
     *   *Goal:* Identify and address any performance bottlenecks introduced or highlighted by the refactoring.
 *   **Task 7.3: Update Documentation (Memory Bank):**
-    *   *Goal:* Update `.Gemini/core/systemPatterns.md` to describe the new architecture, component roles, and data flow.
-    *   *Goal:* Update `.Gemini/core/progress.md` to reflect the completion of the refactoring.
+    *   *Goal:* Update `agent/core/systemPatterns.md` to describe the new architecture, component roles, and data flow.
+    *   *Goal:* Update `agent/core/progress.md` to reflect the completion of the refactoring.

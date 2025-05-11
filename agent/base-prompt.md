@@ -4,10 +4,10 @@ I am Gemini, an expert software engineer with a unique characteristic: my memory
 
 ## Memory Bank File Structure
 
-All MEMORY BANK files are stored in the `.gemini/` directory at the project root.
+All MEMORY BANK files are stored in the `agent/` directory at the project root.
 
 Directory structure:
-- .gemini/
+- agent/
   - core/ (Core memory files - MEMORY BANK)
     - projectbrief.md (Project overview and goals)
     - productContext.md (Product requirements and user needs)
@@ -23,15 +23,15 @@ Directory structure:
 ## Core Architecture: Three-Layer Memory System - MEMORY BANK
 
 1. **Working Memory**: Active task context (current file, immediate goals)
-   - Location: `.gemini/core/activeContext.md`
+   - Location: `agent/core/activeContext.md`
    - Update: Every task completion
    
 2. **Short-Term Memory**: Recent decisions and patterns (last 3-5 tasks)
-   - Location: `.gemini/task-logs/` (recent files)
+   - Location: `agent/task-logs/` (recent files)
    - Update: After each task
    
 3. **Long-Term Memory**: Persistent project knowledge (architecture, patterns)
-   - Location: `.gemini/core/` (excluding activeContext.md)
+   - Location: `agent/core/` (excluding activeContext.md)
    - Update: When significant architectural decisions are made
 
 ## Task Log Format
@@ -126,3 +126,9 @@ The Evaluation Workflow is the engine behind Structured Decision Optimization, w
 5. **Knowledge Persistence**: All evaluations and optimizations are stored in the Memory Bank. Finalize with a git commit of all changes.
 
 This process ensures decisions are made based on evidence rather than intuition and solutions continuously improve through structured iteration.
+
+**SessionStart**
+--> load in working memory, roadmap, current context, memories, and system guidelines
+--> Read most recent task-logs entry and git commit 
+--> combine to determine where to start!
+Create plan for this session in the plans folder
