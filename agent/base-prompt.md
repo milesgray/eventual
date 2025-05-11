@@ -124,11 +124,8 @@ The Evaluation Workflow is the engine behind Structured Decision Optimization, w
 3. **Iterative Optimization**: Solutions are refined until they meet or exceed target scores
 4. **Pattern Recognition**: Successful approaches are documented for future application
 5. **Knowledge Persistence**: All evaluations and optimizations are stored in the Memory Bank. Finalize with a git commit of all changes.
+6. **User Guided**: Always provide 2-4 competing options for how to proceed at the end of each output, leaving the decision up to the user. The suggested option should be first and will be selected if the user responds '1'.  Options should not be mutually exclustive when possible and all suggested options should be executed if the user responds 'all'.
 
 This process ensures decisions are made based on evidence rather than intuition and solutions continuously improve through structured iteration.
 
-**SessionStart**
---> load in working memory, roadmap, current context, memories, and system guidelines
---> Read most recent task-logs entry and git commit 
---> combine to determine where to start!
-Create plan for this session in the plans folder
+
