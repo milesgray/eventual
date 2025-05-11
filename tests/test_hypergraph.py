@@ -1,6 +1,10 @@
 import unittest
 from datetime import datetime, timedelta
 from eventual.core import Hypergraph, Concept, Event
+import logging # Import logging
+
+# Configure logging for the test to capture warnings
+logging.basicConfig(level=logging.INFO)
 
 class TestHypergraph(unittest.TestCase):
     def test_add_concept(self):
@@ -121,8 +125,7 @@ class TestHypergraph(unittest.TestCase):
         self.assertEqual(len(hypergraph.concepts), 1) # Should not add a new concept
         self.assertIs(returned_concept, existing_concept) # Should return the original concept instance
 
-
-    def test_add_event(self):
+    def test_add_event_single_concept(self):
         hypergraph = Hypergraph()
         concept = Concept(concept_id="light_1", name="light", initial_state=1.0)
         hypergraph.add_concept(concept)
@@ -138,6 +141,133 @@ class TestHypergraph(unittest.TestCase):
         retrieved_concept = hypergraph.get_concept("light_1")
         self.assertIsNotNone(retrieved_concept)
         self.assertIn(event, retrieved_concept.events)
+        self.assertIn(retrieved_concept, hypergraph.events["event_1"].concepts) # Verify concept in event is the stored instance
+        self.assertEqual(len(hypergraph.events["event_1"].concepts), 1)
+
+    def test_add_event_links_correct_concept_instance(self):
+        hypergraph = Hypergraph()
+        # Add the original concept instance
+        original_concept = Concept(concept_id="concept_to_link", name="linked concept", initial_state=1.0)
+        hypergraph.add_concept(original_concept)
+
+        # Create a *new* concept instance with the same ID
+        new_concept_instance = Concept(concept_id="concept_to_link", name="different instance", initial_state=99.0)
+
+        # Create an event using the new concept instance
+        event = Event(
+            event_id="event_link_test",
+            timestamp=datetime.now(),
+            concepts={new_concept_instance},
+            delta=1.0
+        )
+
+        hypergraph.add_event(event)
+
+        # Retrieve the event from the hypergraph
+        retrieved_event = hypergraph.get_event("event_link_test")
+        self.assertIsNotNone(retrieved_event)
+
+        # Verify the concept in the retrieved event's concepts set is the *original* instance from the hypergraph
+        self.assertEqual(len(retrieved_event.concepts), 1)
+        linked_concept_in_event = list(retrieved_event.concepts)[0]
+        self.assertIs(linked_concept_in_event, original_concept) # Assert that it's the exact same object in memory
+        self.assertEqual(linked_concept_in_event.name, "linked concept") # Verify it has the original name
+        self.assertEqual(linked_concept_in_event.state, 1.0) # Verify it has the original state
+
+        # Verify the event is linked back to the original concept instance
+        retrieved_concept = hypergraph.get_concept("concept_to_link")
+        self.assertIsNotNone(retrieved_concept)
+        self.assertIn(retrieved_event, retrieved_concept.events)
+
+    def test_add_event_with_multiple_concepts(self):
+        hypergraph = Hypergraph()
+        # Use concept names with distinct lemmas
+        concept1 = Concept(concept_id="concept_multi_1", name="apple", initial_state=1.0)
+        concept2 = Concept(concept_id="concept_multi_2", name="banana", initial_state=2.0)
+        concept3 = Concept(concept_id="concept_multi_3", name="orange", initial_state=3.0)
+        hypergraph.add_concept(concept1)
+        hypergraph.add_concept(concept2)
+        hypergraph.add_concept(concept3)
+
+        event = Event(
+            event_id="event_multi",
+            timestamp=datetime.now(),
+            concepts={concept1, concept2, concept3},
+            delta=0.1
+        )
+
+        hypergraph.add_event(event)
+
+        self.assertEqual(len(hypergraph.events), 1)
+        retrieved_event = hypergraph.get_event("event_multi")
+        self.assertIsNotNone(retrieved_event)
+
+        # Verify all original concept instances are in the event's concepts set within the hypergraph
+        self.assertEqual(len(retrieved_event.concepts), 3)
+        self.assertIn(concept1, retrieved_event.concepts)
+        self.assertIn(concept2, retrieved_event.concepts)
+        self.assertIn(concept3, retrieved_event.concepts)
+
+        # Verify the event is linked back to each original concept instance
+        self.assertIn(retrieved_event, hypergraph.get_concept("concept_multi_1").events)
+        self.assertIn(retrieved_event, hypergraph.get_concept("concept_multi_2").events)
+        self.assertIn(retrieved_event, hypergraph.get_concept("concept_multi_3").events)
+
+    def test_add_event_with_non_existent_concept(self):
+        hypergraph = Hypergraph()
+        concept1 = Concept(concept_id="exists_1", name="exists", initial_state=1.0)
+        non_existent_concept = Concept(concept_id="non_existent_1", name="does not exist", initial_state=2.0)
+        hypergraph.add_concept(concept1)
+
+        # Create an event with one existing and one non-existent concept
+        event = Event(
+            event_id="event_with_missing",
+            timestamp=datetime.now(),
+            concepts={concept1, non_existent_concept},
+            delta=0.2
+        )
+
+        # Adding this event should log a warning and only link to the existing concept
+        # Use the logger for the module eventual.core.hypergraph
+        module_logger = logging.getLogger('eventual.core.hypergraph')
+        with self.assertLogs(module_logger, level='WARNING') as log_context:
+             hypergraph.add_event(event)
+
+        self.assertEqual(len(hypergraph.events), 1)
+        retrieved_event = hypergraph.get_event("event_with_missing")
+        self.assertIsNotNone(retrieved_event)
+
+        # Verify the event's concepts set only contains the existing concept instance
+        self.assertEqual(len(retrieved_event.concepts), 1)
+        self.assertIn(concept1, retrieved_event.concepts)
+        self.assertNotIn(non_existent_concept, retrieved_event.concepts)
+
+        # Verify the event is linked back *only* to the existing concept instance
+        self.assertIn(retrieved_event, hypergraph.get_concept("exists_1").events)
+        # Assert that the non-existent concept was not added to the hypergraph
+        self.assertIsNone(hypergraph.get_concept("non_existent_1"))
+
+        # Check for the warning message in the captured logs
+        self.assertTrue(any(f"Adding event event_with_missing with concept non_existent_1 not found in hypergraph." in record.getMessage() for record in log_context.records))
+
+
+    def test_add_event_raises_error_for_duplicate_id(self):
+        hypergraph = Hypergraph()
+        concept = Concept(concept_id="concept_for_duplicate", name="for duplicate event", initial_state=1.0)
+        hypergraph.add_concept(concept)
+
+        event1 = Event(event_id="duplicate_event_id", timestamp=datetime.now(), concepts={concept}, delta=0.1)
+        hypergraph.add_event(event1)
+
+        # Attempt to add another event with the same ID
+        event2 = Event(event_id="duplicate_event_id", timestamp=datetime.now(), concepts={concept}, delta=0.2)
+
+        with self.assertRaises(ValueError) as context:
+            hypergraph.add_event(event2)
+
+        self.assertIn("Event with ID duplicate_event_id already exists.", str(context.exception))
+        self.assertEqual(len(hypergraph.events), 1) # Ensure no new event was added
+
 
     def test_find_related_concepts(self):
         hypergraph = Hypergraph()

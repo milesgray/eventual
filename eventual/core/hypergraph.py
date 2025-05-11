@@ -38,11 +38,15 @@ hypergraph.add_event(event)
 ```
 """
 import json
+import logging # Import logging
 from typing import Optional, List, Set, Tuple, Dict, Any
 from eventual.core.event import Event
 from eventual.core.concept import Concept
 from datetime import datetime, timedelta
 import spacy # Import spacy for query processing
+
+# Get the logger for this module
+logger = logging.getLogger(__name__)
 
 class Hypergraph:
     """
@@ -188,10 +192,8 @@ class Hypergraph:
             if stored_concept:
                  hypergraph_concepts.add(stored_concept)
             else:
-                 # This indicates an event is being added with a concept not present in the hypergraph.
-                 # Depending on desired behavior, this might be an error or a warning.
-                 # Current add_concept requires concepts to be added first.
-                 print(f"Warning: Adding event {event.event_id} with concept {concept_in_event.concept_id} not found in hypergraph. Event not linked to this concept.")
+                 # Use logging.warning instead of print
+                 logger.warning(f"Adding event {event.event_id} with concept {concept_in_event.concept_id} not found in hypergraph. Event not linked to this concept.")
 
         # Update the event object's concepts to reference the stored instances
         event.concepts = hypergraph_concepts
@@ -389,7 +391,7 @@ class Hypergraph:
                 else:
                     # This indicates an issue with the saved data - a concept ID in an event
                     # doesn't correspond to a concept in the saved concepts list.
-                    print(f"Warning: Concept ID {concept_id} for event {event_id} not found during loading. Event may be incomplete.")
+                    logger.warning(f"Concept ID {concept_id} for event {event_id} not found during loading. Event may be incomplete.")
 
             # Only create the event if its concepts can be retrieved (at least partially)
             if event_concepts or not event_data.get("concept_ids"):
@@ -399,7 +401,7 @@ class Hypergraph:
                  for concept in event_concepts:
                       concept.events.add(event)
             else:
-                print(f"Warning: Skipping event {event_id} during loading due to no concepts found.")
+                logger.warning(f"Skipping event {event_id} during loading due to no concepts found.")
 
         return hypergraph
 
